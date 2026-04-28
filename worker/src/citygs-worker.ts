@@ -2,7 +2,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import WebSocket from 'ws';
-import { CameraControlPacket, isProtocolMessage, makeId, ProtocolMessage } from '@citygs/shared';
+import { CameraControlPacket, CameraPose, isProtocolMessage, makeId, ProtocolMessage } from '@citygs/shared';
 
 const signalingUrl = process.env.SIGNALING_URL ?? 'ws://localhost:8788';
 const workerId = process.env.WORKER_ID ?? makeId('citygs_worker');
@@ -23,10 +23,11 @@ let lastCamera: CameraControlPacket | undefined;
 let lastRenderStartedAt = 0;
 let renderInFlight = false;
 
-// First MVP bridge version: use a fixed known-good MatrixCity camera exported
-// from CityGaussian output_v1/mc_aerial_coarse/cameras.json. Frontend camera
-// deltas will be converted into this R/T/FoV schema in the next step.
-const fixedCamera = {
+const orbitTarget: Vec3 = [0, -0.38, 0];
+const imageWidth = 960;
+const imageHeight = 540;
+
+const fixedCamera: CityGsCamera = {
   R: [
     [-4.371138825898235e-8, -0.9999999999999983, -3.89386082266796e-8],
     [-0.7071068044696104, 5.8442372857792086e-8, -0.7071067579034818],
@@ -35,9 +36,22 @@ const fixedCamera = {
   T: [-0.380000387199643, -6.010407885585369, 8.131727784392663],
   FoVx: 0.7853981852531432,
   FoVy: 0.45782234845589415,
-  width: 960,
-  height: 540,
-  source_camera: '0000',
+  width: imageWidth,
+  height: imageHeight,
+  source_camera: 'fixed-0000',
+};
+
+type Vec3 = [number, number, number];
+type Mat3 = [Vec3, Vec3, Vec3];
+
+type CityGsCamera = {
+  R: Mat3;
+  T: Vec3;
+  FoVx: number;
+  FoVy: number;
+  width: number;
+  height: number;
+  source_camera?: string;
 };
 
 type RenderServerResponse = {
@@ -53,6 +67,59 @@ type RenderServerResponse = {
 
 function send(msg: ProtocolMessage) {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+}
+
+function sub(a: Vec3, b: Vec3): Vec3 {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+function dot(a: Vec3, b: Vec3) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+function cross(a: Vec3, b: Vec3): Vec3 {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+}
+
+function norm(v: Vec3) {
+  return Math.hypot(v[0], v[1], v[2]);
+}
+
+function normalize(v: Vec3): Vec3 {
+  const n = norm(v) || 1;
+  return [v[0] / n, v[1] / n, v[2] / n];
+}
+
+function cameraFromPose(pose?: CameraPose): CityGsCamera {
+  if (!pose) return fixedCamera;
+
+  const position = pose.position;
+  const forward = normalize(sub(orbitTarget, position));
+  const worldUp: Vec3 = Math.abs(dot(forward, [0, 0, 1])) > 0.98 ? [0, 1, 0] : [0, 0, 1];
+  const right = normalize(cross(forward, worldUp));
+  const down = normalize(cross(forward, right));
+
+  // CityGaussian ViewerCam expects COLMAP-like world-to-camera R/T:
+  // x = right, y = down, z = forward, T = -R * camera_center.
+  const R: Mat3 = [right, down, forward];
+  const T: Vec3 = [-dot(right, position), -dot(down, position), -dot(forward, position)];
+  const FoVy = (pose.fovYDegrees * Math.PI) / 180;
+  const aspect = imageWidth / imageHeight;
+  const FoVx = 2 * Math.atan(Math.tan(FoVy / 2) * aspect);
+
+  return {
+    R,
+    T,
+    FoVx,
+    FoVy,
+    width: imageWidth,
+    height: imageHeight,
+    source_camera: 'frontend-orbit',
+  };
 }
 
 function startFrameServer() {
@@ -92,7 +159,7 @@ function startFrameServer() {
   });
 }
 
-async function postRenderRequest(): Promise<RenderServerResponse> {
+async function postRenderRequest(camera: CityGsCamera): Promise<RenderServerResponse> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), renderTimeoutMs);
 
@@ -100,7 +167,7 @@ async function postRenderRequest(): Promise<RenderServerResponse> {
     const response = await fetch(renderServerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ camera: fixedCamera, output: outputPath }),
+      body: JSON.stringify({ camera, output: outputPath }),
       signal: controller.signal,
     });
 
@@ -150,13 +217,15 @@ async function renderFrame(sessionId: string, cameraPacket?: CameraControlPacket
   const requestStart = Date.now();
 
   try {
-    const result = await postRenderRequest();
+    const citygsCamera = cameraFromPose(cameraPacket?.pose);
+    const result = await postRenderRequest(citygsCamera);
     const requestMs = Date.now() - requestStart;
     const renderMs = result.renderMs ?? requestMs;
 
     console.log(
       `CityGS render_server success: session=${sessionId} output=${result.output ?? outputPath} ` +
-      `renderMs=${renderMs.toFixed(2)} totalMs=${result.totalMs?.toFixed(2) ?? 'n/a'} requestMs=${requestMs}`,
+      `renderMs=${renderMs.toFixed(2)} totalMs=${result.totalMs?.toFixed(2) ?? 'n/a'} requestMs=${requestMs} ` +
+      `camera=${citygsCamera.source_camera}`,
     );
 
     const imageUrl = `${publicFrameBaseUrl}/frame.png?t=${Date.now()}`;
@@ -190,8 +259,8 @@ ws.on('open', () => {
     capabilities: {
       renderer: 'citygs',
       codecs: ['h264'],
-      maxWidth: 960,
-      maxHeight: 540,
+      maxWidth: imageWidth,
+      maxHeight: imageHeight,
       maxFps: 2,
       gpuName: 'NVIDIA RTX A6000',
       gpuMemoryGb: 48,
@@ -214,7 +283,8 @@ ws.on('message', (raw) => {
 
   if (msg.type === 'camera.control') {
     lastCamera = msg;
-    console.log(`camera packet seq=${msg.sequence} session=${msg.sessionId}; requesting CityGS render_server`);
+    const poseInfo = msg.pose ? `pose=[${msg.pose.position.map((v) => v.toFixed(2)).join(',')}]` : 'fixed-camera';
+    console.log(`camera packet seq=${msg.sequence} session=${msg.sessionId}; requesting CityGS render_server ${poseInfo}`);
     void renderFrame(msg.sessionId, msg);
   }
 });

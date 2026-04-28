@@ -1,8 +1,37 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { RenderStats } from '@citygs/shared';
+import { CameraPose, RenderStats } from '@citygs/shared';
 import { SignalingClient } from './signalingClient';
 import './styles.css';
+
+const orbitTarget: [number, number, number] = [0, -0.38, 0];
+const initialOrbit = {
+  yaw: Math.PI,
+  pitch: 0.15,
+  radius: 10.2,
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function orbitToPose(orbit: { yaw: number; pitch: number; radius: number }): CameraPose {
+  const cp = Math.cos(orbit.pitch);
+  const position: [number, number, number] = [
+    orbitTarget[0] + orbit.radius * cp * Math.cos(orbit.yaw),
+    orbitTarget[1] + orbit.radius * cp * Math.sin(orbit.yaw),
+    orbitTarget[2] + orbit.radius * Math.sin(orbit.pitch),
+  ];
+
+  return {
+    position,
+    // Worker currently derives orientation with lookAt(position -> fixed target).
+    rotation: [1, 0, 0, 0],
+    fovYDegrees: 26.23,
+    near: 0.01,
+    far: 100,
+  };
+}
 
 function App() {
   const client = useMemo(() => new SignalingClient(), []);
@@ -12,15 +41,32 @@ function App() {
   const [frameBaseUrl, setFrameBaseUrl] = useState('http://127.0.0.1:8789');
   const [sessionId, setSessionId] = useState('-');
   const [stats, setStats] = useState<RenderStats | undefined>();
+  const [orbitDebug, setOrbitDebug] = useState(initialOrbit);
   const sequence = useRef(0);
   const dragging = useRef(false);
+  const orbit = useRef({ ...initialOrbit });
 
   client.onStatus = setStatus;
-  client.onAssigned = (s) => { setSessionId(s.sessionId); setStatus(`assigned worker ${s.workerId}`); };
+  client.onAssigned = (s) => {
+    setSessionId(s.sessionId);
+    setStatus(`assigned worker ${s.workerId}`);
+    sendOrbitSnapshot();
+  };
   client.onStats = setStats;
 
-  const sendDelta = (delta: Record<string, number>) => {
-    client.sendCamera({ sequence: ++sequence.current, mode: 'delta', delta });
+  const sendOrbitSnapshot = () => {
+    const pose = orbitToPose(orbit.current);
+    client.sendCamera({ sequence: ++sequence.current, mode: 'snapshot', pose });
+    setOrbitDebug({ ...orbit.current });
+  };
+
+  const updateOrbit = (delta: { yaw?: number; pitch?: number; radius?: number }) => {
+    orbit.current = {
+      yaw: orbit.current.yaw + (delta.yaw ?? 0),
+      pitch: clamp(orbit.current.pitch + (delta.pitch ?? 0), -1.2, 1.2),
+      radius: clamp(orbit.current.radius + (delta.radius ?? 0), 3, 30),
+    };
+    sendOrbitSnapshot();
   };
 
   const frameUrl = (() => {
@@ -61,22 +107,22 @@ function App() {
         onMouseDown={() => { dragging.current = true; }}
         onMouseUp={() => { dragging.current = false; }}
         onMouseLeave={() => { dragging.current = false; }}
-        onMouseMove={(e) => dragging.current && sendDelta({ yaw: e.movementX * 0.002, pitch: e.movementY * 0.002 })}
-        onWheel={(e) => sendDelta({ dolly: e.deltaY * 0.01 })}
+        onMouseMove={(e) => dragging.current && updateOrbit({ yaw: e.movementX * 0.006, pitch: -e.movementY * 0.006 })}
+        onWheel={(e) => updateOrbit({ radius: e.deltaY * 0.01 })}
         onKeyDown={(e) => {
-          const step = 0.08;
-          if (e.key === 'w') sendDelta({ dolly: -step });
-          if (e.key === 's') sendDelta({ dolly: step });
-          if (e.key === 'a') sendDelta({ truck: -step });
-          if (e.key === 'd') sendDelta({ truck: step });
-          if (e.key === 'q') sendDelta({ pedestal: -step });
-          if (e.key === 'e') sendDelta({ pedestal: step });
+          const step = 0.1;
+          if (e.key === 'a') updateOrbit({ yaw: -step });
+          if (e.key === 'd') updateOrbit({ yaw: step });
+          if (e.key === 'w') updateOrbit({ pitch: step });
+          if (e.key === 's') updateOrbit({ pitch: -step });
+          if (e.key === 'q') updateOrbit({ radius: step });
+          if (e.key === 'e') updateOrbit({ radius: -step });
         }}
       >
         {frameUrl
           ? <img className="renderFrame" src={frameUrl} alt="Latest CityGS render" />
           : <div className="videoPlaceholder">Remote CityGS render frame placeholder</div>}
-        <div className="hint">Drag: orbit · Wheel: dolly · WASD/QE: move</div>
+        <div className="hint">Drag: orbit · Wheel: zoom · WASD/QE: orbit/zoom</div>
       </div>
 
       <aside className="panel">
@@ -91,6 +137,10 @@ function App() {
         <p>Bitrate: {stats?.bitrateKbps ?? '-'} kbps</p>
         <p>Latency: {stats?.latencyMs ?? '-'} ms</p>
         <p>Image: {frameUrl ? 'latest frame loaded' : '-'}</p>
+        <h2>Orbit camera</h2>
+        <p>Yaw: {orbitDebug.yaw.toFixed(2)}</p>
+        <p>Pitch: {orbitDebug.pitch.toFixed(2)}</p>
+        <p>Radius: {orbitDebug.radius.toFixed(2)}</p>
       </aside>
     </section>
   </main>;
