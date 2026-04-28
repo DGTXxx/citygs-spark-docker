@@ -221,7 +221,7 @@ cloudflared tunnel --url http://127.0.0.1:8788
 cloudflared tunnel --url http://127.0.0.1:8789
 ```
 
-然后在前端页面填写：
+然后在前端页面填写或确认：
 
 ```text
 Signaling URL:
@@ -231,13 +231,18 @@ Frame base URL:
 https://<frame-tunnel>.trycloudflare.com
 ```
 
-点击：
+这两个 URL 会自动保存到浏览器 localStorage。页面刷新后会自动：
 
-1. `Connect signaling`
-2. `Start session`
-3. 鼠标拖动 / 滚轮缩放
+1. 连接 signaling；
+2. 创建 render session；
+3. 请求第一帧 CityGS 渲染。
 
-即可看到 A6000 服务器渲染的 CityGS PNG 图像刷新。
+之后直接鼠标拖动 / 滚轮缩放 / WASD-QE 控制视角即可。
+
+如果 tunnel 地址变化，重新填写 URL 后可点击：
+
+- `Reconnect`：重新连接 signaling 并自动开 session；
+- `Restart session`：在当前 signaling 连接下重新创建 session。
 
 ---
 
