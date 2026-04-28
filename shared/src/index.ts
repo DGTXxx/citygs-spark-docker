@@ -72,6 +72,7 @@ export interface RenderStats {
   bitrateKbps: number;
   latencyMs?: number;
   gpuMemoryUsedMb?: number;
+  imageUrl?: string;
 }
 
 export interface WebRtcSignal {

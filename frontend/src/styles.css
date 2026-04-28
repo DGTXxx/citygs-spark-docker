@@ -3,12 +3,14 @@ body { margin: 0; }
 .app { padding: 28px; }
 .hero h1 { margin: 0; font-size: 34px; }
 .hero p { color: #9fb0cc; }
-.toolbar { display: flex; gap: 12px; margin: 20px 0; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 20px 0; }
+.toolbar label { display: grid; gap: 6px; color: #9fb0cc; font-size: 12px; }
 .toolbar input { min-width: 260px; padding: 10px 12px; border-radius: 8px; border: 1px solid #2a3a56; background: #0d1a2d; color: #fff; }
 button { border: 0; border-radius: 8px; padding: 10px 14px; background: #4e8cff; color: #fff; cursor: pointer; }
 .layout { display: grid; grid-template-columns: 1fr 320px; gap: 18px; }
 .viewport { position: relative; height: 64vh; min-height: 420px; border: 1px solid #22314a; border-radius: 16px; background: radial-gradient(circle at center, #18345d, #091321 70%); overflow: hidden; outline: none; }
 .videoPlaceholder { position: absolute; inset: 28px; display: grid; place-items: center; border: 1px dashed #7ca9ff; border-radius: 14px; color: #b9cdf5; font-size: 22px; }
+.renderFrame { position: absolute; inset: 28px; width: calc(100% - 56px); height: calc(100% - 56px); object-fit: contain; border: 1px solid #243b63; border-radius: 14px; background: #02060d; }
 .hint { position: absolute; left: 20px; bottom: 18px; color: #dbe7ff; background: rgba(0,0,0,.35); padding: 8px 12px; border-radius: 999px; }
 .panel { background: #0d1a2d; border: 1px solid #22314a; border-radius: 16px; padding: 18px; }
 .panel h2 { margin-bottom: 8px; }

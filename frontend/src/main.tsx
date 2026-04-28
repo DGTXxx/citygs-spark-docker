@@ -8,6 +8,8 @@ function App() {
   const client = useMemo(() => new SignalingClient(), []);
   const [status, setStatus] = useState('idle');
   const [sceneId, setSceneId] = useState('matrixcity-demo-block');
+  const [signalingUrl, setSignalingUrl] = useState('ws://localhost:8788');
+  const [frameBaseUrl, setFrameBaseUrl] = useState('http://127.0.0.1:8789');
   const [sessionId, setSessionId] = useState('-');
   const [stats, setStats] = useState<RenderStats | undefined>();
   const sequence = useRef(0);
@@ -21,6 +23,14 @@ function App() {
     client.sendCamera({ sequence: ++sequence.current, mode: 'delta', delta });
   };
 
+  const frameUrl = (() => {
+    if (!stats) return undefined;
+    if (frameBaseUrl.trim()) {
+      return `${frameBaseUrl.replace(/\/$/, '')}/frame.png?t=${stats.timestampMs}`;
+    }
+    return stats.imageUrl;
+  })();
+
   return <main className="app">
     <section className="hero">
       <h1>CityGS Remote Render MVP</h1>
@@ -28,8 +38,19 @@ function App() {
     </section>
 
     <section className="toolbar">
-      <input value={sceneId} onChange={(e) => setSceneId(e.target.value)} />
-      <button onClick={() => client.connect('ws://localhost:8788')}>Connect signaling</button>
+      <label>
+        Scene
+        <input value={sceneId} onChange={(e) => setSceneId(e.target.value)} />
+      </label>
+      <label>
+        Signaling URL
+        <input value={signalingUrl} onChange={(e) => setSignalingUrl(e.target.value)} placeholder="wss://...trycloudflare.com" />
+      </label>
+      <label>
+        Frame base URL
+        <input value={frameBaseUrl} onChange={(e) => setFrameBaseUrl(e.target.value)} placeholder="https://...trycloudflare.com" />
+      </label>
+      <button onClick={() => client.connect(signalingUrl)}>Connect signaling</button>
       <button onClick={() => client.requestSession(sceneId)}>Start session</button>
     </section>
 
@@ -52,7 +73,9 @@ function App() {
           if (e.key === 'e') sendDelta({ pedestal: step });
         }}
       >
-        <div className="videoPlaceholder">Remote WebRTC video stream placeholder</div>
+        {frameUrl
+          ? <img className="renderFrame" src={frameUrl} alt="Latest CityGS render" />
+          : <div className="videoPlaceholder">Remote CityGS render frame placeholder</div>}
         <div className="hint">Drag: orbit · Wheel: dolly · WASD/QE: move</div>
       </div>
 
