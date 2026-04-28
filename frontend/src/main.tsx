@@ -9,6 +9,12 @@ const frameBaseUrlStorageKey = 'citygs.frameBaseUrl';
 const defaultSignalingUrl = 'ws://localhost:8788';
 const defaultFrameBaseUrl = 'http://127.0.0.1:8789';
 const cameraSendIntervalMs = 250;
+const mouseYawSensitivity = 0.0025;
+const mousePitchSensitivity = 0.0025;
+const keyYawStep = 0.04;
+const keyPitchStep = 0.025;
+const keyRadiusStep = 0.4;
+const wheelRadiusSensitivity = 0.004;
 
 // Match the known-good CityGaussian camera first, then orbit around a point
 // along its optical axis. This keeps the MVP camera inside the trained
@@ -64,6 +70,7 @@ function App() {
   const [isRendering, setIsRendering] = useState(false);
   const sequence = useRef(0);
   const dragging = useRef(false);
+  const activePointerId = useRef<number | undefined>(undefined);
   const orbit = useRef({ ...initialOrbit });
   const lastCameraSentAt = useRef(0);
   const cameraSendTimer = useRef<number | undefined>(undefined);
@@ -161,26 +168,44 @@ function App() {
       <div
         className="viewport"
         tabIndex={0}
-        onMouseDown={(e) => {
+        onPointerDown={(e) => {
+          e.preventDefault();
           e.currentTarget.focus();
           dragging.current = true;
+          activePointerId.current = e.pointerId;
+          e.currentTarget.setPointerCapture(e.pointerId);
         }}
-        onMouseUp={() => { dragging.current = false; }}
-        onMouseLeave={() => { dragging.current = false; }}
-        onMouseMove={(e) => dragging.current && updateOrbit({ yaw: e.movementX * 0.006, pitch: -e.movementY * 0.006 })}
+        onPointerUp={(e) => {
+          dragging.current = false;
+          activePointerId.current = undefined;
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+        }}
+        onPointerCancel={(e) => {
+          dragging.current = false;
+          activePointerId.current = undefined;
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          if (!dragging.current || activePointerId.current !== e.pointerId) return;
+          e.preventDefault();
+          updateOrbit({ yaw: e.movementX * mouseYawSensitivity, pitch: -e.movementY * mousePitchSensitivity });
+        }}
         onWheel={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          updateOrbit({ radius: e.deltaY * 0.01 });
+          updateOrbit({ radius: e.deltaY * wheelRadiusSensitivity });
         }}
         onKeyDown={(e) => {
-          const step = 0.1;
-          if (e.key === 'a') updateOrbit({ yaw: -step });
-          if (e.key === 'd') updateOrbit({ yaw: step });
-          if (e.key === 'w') updateOrbit({ pitch: step });
-          if (e.key === 's') updateOrbit({ pitch: -step });
-          if (e.key === 'q') updateOrbit({ radius: step });
-          if (e.key === 'e') updateOrbit({ radius: -step });
+          if (['a', 'd', 'w', 's', 'q', 'e'].includes(e.key)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          if (e.key === 'a') updateOrbit({ yaw: -keyYawStep });
+          if (e.key === 'd') updateOrbit({ yaw: keyYawStep });
+          if (e.key === 'w') updateOrbit({ pitch: keyPitchStep });
+          if (e.key === 's') updateOrbit({ pitch: -keyPitchStep });
+          if (e.key === 'q') updateOrbit({ radius: keyRadiusStep });
+          if (e.key === 'e') updateOrbit({ radius: -keyRadiusStep });
         }}
       >
         {frameUrl
