@@ -4,6 +4,12 @@ import { CameraPose, RenderStats } from '@citygs/shared';
 import { SignalingClient } from './signalingClient';
 import './styles.css';
 
+const signalingUrlStorageKey = 'citygs.signalingUrl';
+const frameBaseUrlStorageKey = 'citygs.frameBaseUrl';
+const defaultSignalingUrl = 'ws://localhost:8788';
+const defaultFrameBaseUrl = 'http://127.0.0.1:8789';
+const cameraSendIntervalMs = 250;
+
 // Match the known-good CityGaussian camera first, then orbit around a point
 // along its optical axis. This keeps the MVP camera inside the trained
 // MatrixCity coordinate range instead of orbiting an arbitrary origin.
@@ -16,6 +22,16 @@ const initialOrbit = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function getStoredValue(key: string, fallback: string) {
+  if (typeof window === 'undefined') return fallback;
+  return window.localStorage.getItem(key) || fallback;
+}
+
+function setStoredValue(key: string, value: string) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(key, value);
 }
 
 function orbitToPose(orbit: { yaw: number; pitch: number; radius: number }): CameraPose {
@@ -40,27 +56,64 @@ function App() {
   const client = useMemo(() => new SignalingClient(), []);
   const [status, setStatus] = useState('idle');
   const [sceneId, setSceneId] = useState('matrixcity-demo-block');
-  const [signalingUrl, setSignalingUrl] = useState('ws://localhost:8788');
-  const [frameBaseUrl, setFrameBaseUrl] = useState('http://127.0.0.1:8789');
+  const [signalingUrl, setSignalingUrl] = useState(() => getStoredValue(signalingUrlStorageKey, defaultSignalingUrl));
+  const [frameBaseUrl, setFrameBaseUrl] = useState(() => getStoredValue(frameBaseUrlStorageKey, defaultFrameBaseUrl));
   const [sessionId, setSessionId] = useState('-');
   const [stats, setStats] = useState<RenderStats | undefined>();
   const [orbitDebug, setOrbitDebug] = useState(initialOrbit);
+  const [isRendering, setIsRendering] = useState(false);
   const sequence = useRef(0);
   const dragging = useRef(false);
   const orbit = useRef({ ...initialOrbit });
+  const lastCameraSentAt = useRef(0);
+  const cameraSendTimer = useRef<number | undefined>(undefined);
 
-  client.onStatus = setStatus;
+  const sendOrbitSnapshotNow = () => {
+    if (cameraSendTimer.current) {
+      window.clearTimeout(cameraSendTimer.current);
+      cameraSendTimer.current = undefined;
+    }
+    const pose = orbitToPose(orbit.current);
+    client.sendCamera({ sequence: ++sequence.current, mode: 'snapshot', pose });
+    lastCameraSentAt.current = Date.now();
+    setOrbitDebug({ ...orbit.current });
+    setIsRendering(true);
+  };
+
+  const queueOrbitSnapshot = () => {
+    const elapsed = Date.now() - lastCameraSentAt.current;
+    if (elapsed >= cameraSendIntervalMs) {
+      sendOrbitSnapshotNow();
+      return;
+    }
+    if (cameraSendTimer.current) return;
+    cameraSendTimer.current = window.setTimeout(sendOrbitSnapshotNow, cameraSendIntervalMs - elapsed);
+  };
+
+  client.onStatus = (nextStatus) => {
+    setStatus(nextStatus);
+    if (nextStatus.startsWith('error:') || nextStatus === 'signaling-closed' || nextStatus === 'signaling-error') {
+      setIsRendering(false);
+    }
+  };
   client.onAssigned = (s) => {
     setSessionId(s.sessionId);
     setStatus(`assigned worker ${s.workerId}`);
-    sendOrbitSnapshot();
+    sendOrbitSnapshotNow();
   };
-  client.onStats = setStats;
+  client.onStats = (nextStats) => {
+    setStats(nextStats);
+    setIsRendering(false);
+  };
 
-  const sendOrbitSnapshot = () => {
-    const pose = orbitToPose(orbit.current);
-    client.sendCamera({ sequence: ++sequence.current, mode: 'snapshot', pose });
-    setOrbitDebug({ ...orbit.current });
+  const updateSignalingUrl = (value: string) => {
+    setSignalingUrl(value);
+    setStoredValue(signalingUrlStorageKey, value);
+  };
+
+  const updateFrameBaseUrl = (value: string) => {
+    setFrameBaseUrl(value);
+    setStoredValue(frameBaseUrlStorageKey, value);
   };
 
   const updateOrbit = (delta: { yaw?: number; pitch?: number; radius?: number }) => {
@@ -69,7 +122,8 @@ function App() {
       pitch: clamp(orbit.current.pitch + (delta.pitch ?? 0), -1.2, 1.2),
       radius: clamp(orbit.current.radius + (delta.radius ?? 0), 3, 30),
     };
-    sendOrbitSnapshot();
+    setOrbitDebug({ ...orbit.current });
+    queueOrbitSnapshot();
   };
 
   const frameUrl = (() => {
@@ -93,11 +147,11 @@ function App() {
       </label>
       <label>
         Signaling URL
-        <input value={signalingUrl} onChange={(e) => setSignalingUrl(e.target.value)} placeholder="wss://...trycloudflare.com" />
+        <input value={signalingUrl} onChange={(e) => updateSignalingUrl(e.target.value)} placeholder="wss://...trycloudflare.com" />
       </label>
       <label>
         Frame base URL
-        <input value={frameBaseUrl} onChange={(e) => setFrameBaseUrl(e.target.value)} placeholder="https://...trycloudflare.com" />
+        <input value={frameBaseUrl} onChange={(e) => updateFrameBaseUrl(e.target.value)} placeholder="https://...trycloudflare.com" />
       </label>
       <button onClick={() => client.connect(signalingUrl)}>Connect signaling</button>
       <button onClick={() => client.requestSession(sceneId)}>Start session</button>
@@ -132,6 +186,7 @@ function App() {
         {frameUrl
           ? <img className="renderFrame" src={frameUrl} alt="Latest CityGS render" />
           : <div className="videoPlaceholder">Remote CityGS render frame placeholder</div>}
+        {isRendering && <div className="renderingBadge">Rendering...</div>}
         <div className="hint">Drag: orbit · Wheel: zoom · WASD/QE: orbit/zoom</div>
       </div>
 
@@ -147,6 +202,7 @@ function App() {
         <p>Bitrate: {stats?.bitrateKbps ?? '-'} kbps</p>
         <p>Latency: {stats?.latencyMs ?? '-'} ms</p>
         <p>Image: {frameUrl ? 'latest frame loaded' : '-'}</p>
+        <p>Rendering: {isRendering ? 'yes' : 'no'}</p>
         <h2>Orbit camera</h2>
         <p>Yaw: {orbitDebug.yaw.toFixed(2)}</p>
         <p>Pitch: {orbitDebug.pitch.toFixed(2)}</p>
