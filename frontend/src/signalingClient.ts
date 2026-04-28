@@ -9,6 +9,8 @@ export class SignalingClient {
   onAssigned?: (session: SessionAssigned) => void;
 
   connect(url: string) {
+    this.disconnect();
+    this.onStatus?.('signaling-connecting');
     this.ws = new WebSocket(url);
     this.ws.onopen = () => this.onStatus?.('signaling-connected');
     this.ws.onclose = () => this.onStatus?.('signaling-closed');
@@ -22,6 +24,14 @@ export class SignalingClient {
       if (msg.type === 'stats.render') this.onStats?.(msg);
       if (msg.type === 'error') this.onStatus?.(`error: ${msg.message}`);
     };
+  }
+
+  disconnect() {
+    this.session = undefined;
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED && this.ws.readyState !== WebSocket.CLOSING) {
+      this.ws.close();
+    }
+    this.ws = undefined;
   }
 
   requestSession(sceneId: string) {

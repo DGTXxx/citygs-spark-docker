@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CameraPose, RenderStats } from '@citygs/shared';
 import { SignalingClient } from './signalingClient';
@@ -74,6 +74,7 @@ function App() {
   const orbit = useRef({ ...initialOrbit });
   const lastCameraSentAt = useRef(0);
   const cameraSendTimer = useRef<number | undefined>(undefined);
+  const autoSessionStarted = useRef(false);
 
   const sendOrbitSnapshotNow = () => {
     if (cameraSendTimer.current) {
@@ -99,6 +100,10 @@ function App() {
 
   client.onStatus = (nextStatus) => {
     setStatus(nextStatus);
+    if (nextStatus === 'signaling-connected' && !autoSessionStarted.current) {
+      autoSessionStarted.current = true;
+      client.requestSession(sceneId);
+    }
     if (nextStatus.startsWith('error:') || nextStatus === 'signaling-closed' || nextStatus === 'signaling-error') {
       setIsRendering(false);
     }
@@ -113,7 +118,20 @@ function App() {
     setIsRendering(false);
   };
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (signalingUrl.trim()) client.connect(signalingUrl);
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [client, signalingUrl]);
+
   const updateSignalingUrl = (value: string) => {
+    autoSessionStarted.current = false;
+    setSessionId('-');
+    setStats(undefined);
+    setIsRendering(false);
+    client.disconnect();
+    setStatus('idle');
     setSignalingUrl(value);
     setStoredValue(signalingUrlStorageKey, value);
   };
@@ -121,6 +139,21 @@ function App() {
   const updateFrameBaseUrl = (value: string) => {
     setFrameBaseUrl(value);
     setStoredValue(frameBaseUrlStorageKey, value);
+  };
+
+  const reconnectAndStart = () => {
+    autoSessionStarted.current = false;
+    setSessionId('-');
+    setStats(undefined);
+    setIsRendering(false);
+    client.connect(signalingUrl);
+  };
+
+  const restartSession = () => {
+    autoSessionStarted.current = true;
+    setSessionId('-');
+    setStats(undefined);
+    client.requestSession(sceneId);
   };
 
   const updateOrbit = (delta: { yaw?: number; pitch?: number; radius?: number }) => {
@@ -160,8 +193,8 @@ function App() {
         Frame base URL
         <input value={frameBaseUrl} onChange={(e) => updateFrameBaseUrl(e.target.value)} placeholder="https://...trycloudflare.com" />
       </label>
-      <button onClick={() => client.connect(signalingUrl)}>Connect signaling</button>
-      <button onClick={() => client.requestSession(sceneId)}>Start session</button>
+      <button onClick={reconnectAndStart}>Reconnect</button>
+      <button onClick={restartSession}>Restart session</button>
     </section>
 
     <section className="layout">
