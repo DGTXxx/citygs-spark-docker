@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/mock-worker.ts",
+    "dev:citygs": "tsx src/citygs-worker.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

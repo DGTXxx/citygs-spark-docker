@@ -90,6 +90,7 @@ function App() {
         <p>Encode: {stats?.encodeMs ?? '-'} ms</p>
         <p>Bitrate: {stats?.bitrateKbps ?? '-'} kbps</p>
         <p>Latency: {stats?.latencyMs ?? '-'} ms</p>
+        <p>Image: {frameUrl ? 'latest frame loaded' : '-'}</p>
       </aside>
     </section>
   </main>;
