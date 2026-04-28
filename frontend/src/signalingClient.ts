@@ -35,15 +35,17 @@ export class SignalingClient {
   }
 
   requestSession(sceneId: string) {
-    this.send({ type: 'session.request', clientId: this.clientId, sceneId, preferredCodec: 'h264', maxWidth: 1280, maxHeight: 720, maxFps: 60 });
+    return this.send({ type: 'session.request', clientId: this.clientId, sceneId, preferredCodec: 'h264', maxWidth: 1280, maxHeight: 720, maxFps: 60 });
   }
 
   sendCamera(packet: Omit<CameraControlPacket, 'type' | 'sessionId' | 'timestampMs'>) {
-    if (!this.session) return;
-    this.send({ type: 'camera.control', sessionId: this.session.sessionId, timestampMs: Date.now(), ...packet });
+    if (!this.session) return false;
+    return this.send({ type: 'camera.control', sessionId: this.session.sessionId, timestampMs: Date.now(), ...packet });
   }
 
   private send(msg: ProtocolMessage) {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
+    if (this.ws?.readyState !== WebSocket.OPEN) return false;
+    this.ws.send(JSON.stringify(msg));
+    return true;
   }
 }

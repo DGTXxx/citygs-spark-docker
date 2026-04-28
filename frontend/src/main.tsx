@@ -65,6 +65,8 @@ function App() {
   const [signalingUrl, setSignalingUrl] = useState(() => getStoredValue(signalingUrlStorageKey, defaultSignalingUrl));
   const [frameBaseUrl, setFrameBaseUrl] = useState(() => getStoredValue(frameBaseUrlStorageKey, defaultFrameBaseUrl));
   const [sessionId, setSessionId] = useState('-');
+  const [workerId, setWorkerId] = useState('-');
+  const [lastError, setLastError] = useState<string | undefined>();
   const [stats, setStats] = useState<RenderStats | undefined>();
   const [orbitDebug, setOrbitDebug] = useState(initialOrbit);
   const [isRendering, setIsRendering] = useState(false);
@@ -82,10 +84,10 @@ function App() {
       cameraSendTimer.current = undefined;
     }
     const pose = orbitToPose(orbit.current);
-    client.sendCamera({ sequence: ++sequence.current, mode: 'snapshot', pose });
+    const sent = client.sendCamera({ sequence: ++sequence.current, mode: 'snapshot', pose });
     lastCameraSentAt.current = Date.now();
     setOrbitDebug({ ...orbit.current });
-    setIsRendering(true);
+    setIsRendering(sent);
   };
 
   const queueOrbitSnapshot = () => {
@@ -104,17 +106,26 @@ function App() {
       autoSessionStarted.current = true;
       client.requestSession(sceneId);
     }
-    if (nextStatus.startsWith('error:') || nextStatus === 'signaling-closed' || nextStatus === 'signaling-error') {
+    if (nextStatus.startsWith('error:')) {
+      setLastError(nextStatus.replace(/^error:\s*/, ''));
+      setIsRendering(false);
+    }
+    if (nextStatus === 'signaling-closed' || nextStatus === 'signaling-error') {
+      setWorkerId('-');
+      setSessionId('-');
       setIsRendering(false);
     }
   };
   client.onAssigned = (s) => {
     setSessionId(s.sessionId);
-    setStatus(`assigned worker ${s.workerId}`);
+    setWorkerId(s.workerId);
+    setLastError(undefined);
+    setStatus(`session-ready`);
     sendOrbitSnapshotNow();
   };
   client.onStats = (nextStats) => {
     setStats(nextStats);
+    setLastError(undefined);
     setIsRendering(false);
   };
 
@@ -128,7 +139,9 @@ function App() {
   const updateSignalingUrl = (value: string) => {
     autoSessionStarted.current = false;
     setSessionId('-');
+    setWorkerId('-');
     setStats(undefined);
+    setLastError(undefined);
     setIsRendering(false);
     client.disconnect();
     setStatus('idle');
@@ -144,7 +157,9 @@ function App() {
   const reconnectAndStart = () => {
     autoSessionStarted.current = false;
     setSessionId('-');
+    setWorkerId('-');
     setStats(undefined);
+    setLastError(undefined);
     setIsRendering(false);
     client.connect(signalingUrl);
   };
@@ -152,8 +167,16 @@ function App() {
   const restartSession = () => {
     autoSessionStarted.current = true;
     setSessionId('-');
+    setWorkerId('-');
     setStats(undefined);
+    setLastError(undefined);
     client.requestSession(sceneId);
+  };
+
+  const resetCamera = () => {
+    orbit.current = { ...initialOrbit };
+    setOrbitDebug({ ...orbit.current });
+    sendOrbitSnapshotNow();
   };
 
   const updateOrbit = (delta: { yaw?: number; pitch?: number; radius?: number }) => {
@@ -195,6 +218,7 @@ function App() {
       </label>
       <button onClick={reconnectAndStart}>Reconnect</button>
       <button onClick={restartSession}>Restart session</button>
+      <button onClick={resetCamera}>Reset camera</button>
     </section>
 
     <section className="layout">
@@ -245,6 +269,7 @@ function App() {
           ? <img className="renderFrame" src={frameUrl} alt="Latest CityGS render" />
           : <div className="videoPlaceholder">Remote CityGS render frame placeholder</div>}
         {isRendering && <div className="renderingBadge">Rendering...</div>}
+        {lastError && <div className="errorBadge">{lastError}</div>}
         <div className="hint">Drag: orbit · Wheel: zoom · WASD/QE: orbit/zoom</div>
       </div>
 
@@ -253,6 +278,8 @@ function App() {
         <p><b>Status:</b> {status}</p>
         <p><b>Client:</b> {client.clientId}</p>
         <p><b>Session:</b> {sessionId}</p>
+        <p><b>Worker:</b> {workerId}</p>
+        <p><b>Last error:</b> {lastError ?? '-'}</p>
         <h2>Render stats</h2>
         <p>FPS: {stats?.fps ?? '-'}</p>
         <p>Render: {stats?.renderMs ?? '-'} ms</p>

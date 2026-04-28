@@ -23,6 +23,11 @@ function send(ws: WebSocket, msg: ProtocolMessage) {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
 }
 
+function sendToSessionClient(session: Session, msg: ProtocolMessage) {
+  const client = clients.get(session.clientId);
+  if (client) send(client.ws, msg);
+}
+
 function chooseWorker() {
   return workers.values().next().value as WorkerConn | undefined;
 }
@@ -31,7 +36,7 @@ function handleSessionRequest(ws: WebSocket, msg: SessionRequest) {
   clients.set(msg.clientId, { id: msg.clientId, ws });
   const worker = chooseWorker();
   if (!worker) {
-    send(ws, { type: 'error', message: 'No GPU worker is registered yet.' });
+    send(ws, { type: 'error', message: 'No CityGS worker is registered. Please start/restart the worker process.' });
     return;
   }
   const sessionId = makeId('sess');
@@ -54,16 +59,26 @@ function routeBySession(msg: ProtocolMessage & { sessionId?: string }) {
   if (!session) return;
   if (msg.type === 'camera.control') {
     const worker = workers.get(session.workerId);
-    if (worker) send(worker.ws, msg);
+    if (worker) {
+      send(worker.ws, msg);
+      return;
+    }
+    sendToSessionClient(session, {
+      type: 'error',
+      sessionId: session.sessionId,
+      message: `Assigned worker ${session.workerId} is offline. Click Reconnect or restart the worker.`,
+    });
+    return;
   }
   if (msg.type === 'stats.render') {
-    const client = clients.get(session.clientId);
-    if (client) send(client.ws, msg);
+    sendToSessionClient(session, msg);
+  }
+  if (msg.type === 'error') {
+    sendToSessionClient(session, msg);
   }
   if (msg.type === 'webrtc.signal') {
     if (msg.to === 'client') {
-      const client = clients.get(session.clientId);
-      if (client) send(client.ws, msg);
+      sendToSessionClient(session, msg);
     }
     if (msg.to === 'worker') {
       const worker = workers.get(session.workerId);
@@ -88,8 +103,23 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    for (const [id, c] of clients) if (c.ws === ws) clients.delete(id);
-    for (const [id, w] of workers) if (w.ws === ws) workers.delete(id);
+    for (const [id, c] of clients) {
+      if (c.ws === ws) clients.delete(id);
+    }
+    for (const [id, w] of workers) {
+      if (w.ws !== ws) continue;
+      workers.delete(id);
+      for (const [sessionId, session] of sessions) {
+        if (session.workerId !== id) continue;
+        sendToSessionClient(session, {
+          type: 'error',
+          sessionId,
+          message: `CityGS worker ${id} disconnected. Click Reconnect after restarting the worker.`,
+        });
+        sessions.delete(sessionId);
+      }
+      console.log(`worker disconnected: ${id}`);
+    }
   });
 });
 
