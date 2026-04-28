@@ -155,21 +155,37 @@ A6000 服务器上的 CityGaussian 关键文件：
 
 ### 4.1 启动 CityGaussian render server
 
+推荐使用仓库内单服务脚本，方便配合 `screen` / `tmux` 管理。
+
 快速默认演示模式（coarse）：
 
 ```bash
-cd /root/ftl/CityGaussian
-conda run -n citygs python render_server.py \
-  --model output_v1/mc_aerial_coarse \
-  --host 127.0.0.1 \
-  --port 9100
+cd /root/Projects/citygs-remote-render-mvp
+./scripts/start-render-coarse.sh
 ```
 
 高质量完整模型模式（full）：
 
 ```bash
+cd /root/Projects/citygs-remote-render-mvp
+./scripts/start-render-full.sh
+```
+
+等价手动命令：
+
+```bash
 cd /root/ftl/CityGaussian
-conda run -n citygs python render_server.py \
+conda run --no-capture-output -n citygs python render_server.py \
+  --model output_v1/mc_aerial_coarse \
+  --host 127.0.0.1 \
+  --port 9100
+```
+
+或：
+
+```bash
+cd /root/ftl/CityGaussian
+conda run --no-capture-output -n citygs python render_server.py \
   --model output_v1/mc_aerial_c36 \
   --host 127.0.0.1 \
   --port 9100
@@ -181,7 +197,7 @@ conda run -n citygs python render_server.py \
 
 ```bash
 cd /root/Projects/citygs-remote-render-mvp
-npm run dev:signaling
+./scripts/start-signaling.sh
 ```
 
 默认监听：
@@ -194,7 +210,7 @@ ws://127.0.0.1:8788
 
 ```bash
 cd /root/Projects/citygs-remote-render-mvp
-npm --workspace @citygs/worker run dev:citygs
+./scripts/start-citygs-worker.sh
 ```
 
 默认行为：
@@ -217,7 +233,7 @@ CITYGS_MIN_RENDER_INTERVAL_MS=500
 
 ```bash
 cd /root/Projects/citygs-remote-render-mvp
-npm run dev:frontend
+./scripts/start-frontend.sh
 ```
 
 默认监听：
