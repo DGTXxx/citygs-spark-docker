@@ -23,7 +23,10 @@ let lastCamera: CameraControlPacket | undefined;
 let lastRenderStartedAt = 0;
 let renderInFlight = false;
 
-const orbitTarget: Vec3 = [0, -0.38, 0];
+// Match the known-good CityGaussian camera first, then orbit around a point
+// along its optical axis. This keeps the MVP camera inside the trained
+// MatrixCity coordinate range instead of orbiting an arbitrary origin.
+const orbitTarget: Vec3 = [-2.9289, -0.38, -5.5711];
 const imageWidth = 960;
 const imageHeight = 540;
 

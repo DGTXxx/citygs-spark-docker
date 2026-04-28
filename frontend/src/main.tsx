@@ -4,11 +4,14 @@ import { CameraPose, RenderStats } from '@citygs/shared';
 import { SignalingClient } from './signalingClient';
 import './styles.css';
 
-const orbitTarget: [number, number, number] = [0, -0.38, 0];
+// Match the known-good CityGaussian camera first, then orbit around a point
+// along its optical axis. This keeps the MVP camera inside the trained
+// MatrixCity coordinate range instead of orbiting an arbitrary origin.
+const orbitTarget: [number, number, number] = [-2.9289, -0.38, -5.5711];
 const initialOrbit = {
   yaw: Math.PI,
-  pitch: 0.15,
-  radius: 10.2,
+  pitch: Math.PI / 4,
+  radius: 10,
 };
 
 function clamp(value: number, min: number, max: number) {
