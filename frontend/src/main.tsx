@@ -107,11 +107,18 @@ function App() {
       <div
         className="viewport"
         tabIndex={0}
-        onMouseDown={() => { dragging.current = true; }}
+        onMouseDown={(e) => {
+          e.currentTarget.focus();
+          dragging.current = true;
+        }}
         onMouseUp={() => { dragging.current = false; }}
         onMouseLeave={() => { dragging.current = false; }}
         onMouseMove={(e) => dragging.current && updateOrbit({ yaw: e.movementX * 0.006, pitch: -e.movementY * 0.006 })}
-        onWheel={(e) => updateOrbit({ radius: e.deltaY * 0.01 })}
+        onWheel={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          updateOrbit({ radius: e.deltaY * 0.01 });
+        }}
         onKeyDown={(e) => {
           const step = 0.1;
           if (e.key === 'a') updateOrbit({ yaw: -step });
