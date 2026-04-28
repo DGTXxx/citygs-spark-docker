@@ -1,4 +1,4 @@
-# CityGS 远程实时服务端渲染 MVP 汇报说明
+# CityGS 远程实时服务端渲染 MVP 说明
 
 ## 1. 项目目标
 
@@ -250,6 +250,6 @@ WebRTC DataChannel
 
 ---
 
-## 8. 汇报总结
+## 8. 总结
 
 当前系统已经完成从浏览器交互到远程 A6000 服务器真实 CityGaussian 渲染的完整闭环。虽然当前返回方式仍是 PNG 刷新，但它验证了服务端渲染系统的关键路径：前端相机控制、信令转发、GPU worker、CityGaussian CUDA 渲染和网页显示。后续工作将集中在图像流传输优化、WebRTC/NVENC 接入和完整模型演示。
