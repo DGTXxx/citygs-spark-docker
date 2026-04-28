@@ -111,11 +111,13 @@ Renderer: CityGaussian + diff_gaussian_rasterization
 /root/ftl/CityGaussian/output_v1/mc_aerial_coarse
 ```
 
-完整模型候选：
+高质量完整模型：
 
 ```text
 /root/ftl/CityGaussian/output_v1/mc_aerial_c36
 ```
+
+当前决策：默认演示使用 coarse，完整模型作为高质量可选展示。
 
 完整点云：
 
@@ -123,16 +125,41 @@ Renderer: CityGaussian + diff_gaussian_rasterization
 /root/ftl/CityGaussian/output_v1/mc_aerial_c36/point_cloud/iteration_30000/point_cloud.ply
 ```
 
+完整模型测试结果：
+
+```text
+load time ≈ 25.1 s
+steady GPU memory ≈ 9.0 GB
+after render GPU memory ≈ 13.3 GB
+renderMs ≈ 120–220 ms
+Cloudflare latency ≈ 130–300 ms
+CUDA OOM: no
+```
+
+对比 coarse：full 质量更高，但加载时间和显存占用明显更大。因此当前默认保持 coarse，full 用于高质量展示。
+
 ---
 
 ## 5. 如何启动
 
 ### 5.1 render_server
 
+默认 coarse 模型：
+
 ```bash
 cd /root/ftl/CityGaussian
 conda run -n citygs python render_server.py \
   --model output_v1/mc_aerial_coarse \
+  --host 127.0.0.1 \
+  --port 9100
+```
+
+高质量 full 模型：
+
+```bash
+cd /root/ftl/CityGaussian
+conda run -n citygs python render_server.py \
+  --model output_v1/mc_aerial_c36 \
   --host 127.0.0.1 \
   --port 9100
 ```
@@ -185,7 +212,7 @@ Frame base URL: https://<frame>.trycloudflare.com
 4. 当前主要支持单用户演示，没有多用户调度。
 5. 没有 NVENC H.264 / AV1 编码。
 6. 没有正式鉴权，不应长期公开暴露。
-7. 当前主要使用 coarse 模型，完整 `mc_aerial_c36` 还需要进一步性能测试。
+7. 当前默认使用 coarse 模型；完整 `mc_aerial_c36` 已验证可运行，但加载更慢、显存占用更高。
 
 ---
 

@@ -77,11 +77,13 @@ A6000 GPU / CUDA Rendering
 /root/ftl/CityGaussian/output_v1/mc_aerial_coarse
 ```
 
-完整模型候选：
+高质量完整模型：
 
 ```text
 /root/ftl/CityGaussian/output_v1/mc_aerial_c36
 ```
+
+当前决策：默认演示继续使用 `mc_aerial_coarse`，`mc_aerial_c36` 作为高质量可选演示模型。
 
 对应完整点云：
 
@@ -96,8 +98,21 @@ A6000 GPU / CUDA Rendering
 ```text
 renderMs ≈ 130–180 ms
 end-to-end latency ≈ 250–300 ms
-GPU memory ≈ 4–5 GB
+GPU memory ≈ 4–6 GB
 ```
+
+`mc_aerial_c36` 完整模型测试结果：
+
+```text
+load time ≈ 25.1 s
+steady GPU memory ≈ 9.0 GB
+after render GPU memory ≈ 13.3 GB
+renderMs ≈ 120–220 ms
+Cloudflare end-to-end latency ≈ 130–300 ms
+CUDA OOM: no
+```
+
+结论：完整模型可以运行且无 OOM，但加载更慢、显存占用更高。当前建议 coarse 作为默认演示模型，full 作为高质量展示模式。
 
 ---
 
@@ -140,6 +155,8 @@ A6000 服务器上的 CityGaussian 关键文件：
 
 ### 4.1 启动 CityGaussian render server
 
+快速默认演示模式（coarse）：
+
 ```bash
 cd /root/ftl/CityGaussian
 conda run -n citygs python render_server.py \
@@ -147,6 +164,18 @@ conda run -n citygs python render_server.py \
   --host 127.0.0.1 \
   --port 9100
 ```
+
+高质量完整模型模式（full）：
+
+```bash
+cd /root/ftl/CityGaussian
+conda run -n citygs python render_server.py \
+  --model output_v1/mc_aerial_c36 \
+  --host 127.0.0.1 \
+  --port 9100
+```
+
+建议：日常开发和快速演示使用 coarse；需要展示完整城市质量时再切换 full。
 
 ### 4.2 启动 signaling
 
