@@ -6,7 +6,7 @@
 
 > 用户在浏览器中控制相机视角，远程 A6000 GPU 服务器加载已训练好的 CityGS 模型，根据用户视角实时渲染，并把结果返回网页显示。
 
-当前版本还不是最终 WebRTC 视频流系统，而是一个更容易调试和汇报的第一阶段闭环：
+当前版本还不是最终 WebRTC 视频流系统，而是一个更容易调试的第一阶段闭环：
 
 ```text
 Web 前端相机控制
@@ -109,7 +109,7 @@ citygs-remote-render-mvp/
 ├── signaling/       # WebSocket 信令服务
 ├── worker/          # mock worker + CityGS worker
 ├── shared/          # 前后端共享协议类型
-├── docs/            # 架构、接入、汇报说明
+├── docs/            # 架构、接入、说明
 └── README.md
 ```
 
@@ -348,6 +348,6 @@ Browser camera input
 
 ---
 
-## 8. 汇报用一句话总结
+## 8. 用一句话总结
 
 > 本项目实现了一个 CityGS 远程服务端渲染 MVP：用户在浏览器端操作相机，远程 A6000 GPU 服务器加载 CityGaussian 模型并进行 CUDA 渲染，将渲染结果返回网页显示。当前版本已完成真实渲染闭环，后续将进一步升级为基于 NVENC 和 WebRTC 的低延迟视频流传输系统。
