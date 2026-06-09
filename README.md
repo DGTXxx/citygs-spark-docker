@@ -1,77 +1,73 @@
 # CityGS Remote Render MVP
 
-一个面向 **CityGS / MatrixCity / 3D Gaussian Splatting** 的远程实时服务端渲染 MVP。
+面向 **CityGS / MatrixCity / 3D Gaussian Splatting** 的远程实时服务端渲染 MVP。
 
 本项目验证的核心目标是：
 
-> 用户在浏览器中控制相机视角，远程 A6000 GPU 服务器加载已训练好的 CityGS 模型，根据用户视角实时渲染，并把结果返回网页显示。
+> 用户在浏览器中控制相机视角，A6000 GPU 服务器加载已训练好的 CityGS / CityGaussian 模型，根据用户视角实时渲染，并把画面返回网页显示。
 
-当前版本还不是最终 WebRTC 视频流系统，而是一个更容易调试的第一阶段闭环：
+当前版本已经跑通真实服务端渲染闭环，并提供两种可演示画面返回方式：
 
-```text
-Web 前端相机控制
-  → WebSocket signaling
-  → Node.js CityGS worker
-  → 常驻 Python render_server
-  → CityGaussian CUDA rasterizer
-  → PNG frame
-  → 前端刷新显示
-```
+- `Latest PNG`：请求最新渲染帧。
+- `MJPEG Stream`：连续图像流，作为当前阶段可演示的视频流替代方案。
+
+`WebRTC Video` 已接入原型入口，但浏览器稳定播放仍在开发中。最终目标是通过 WebRTC + NVENC 返回低延迟视频流。
 
 ---
 
-## 1. 系统架构
+## 当前链路
 
 ```text
 Browser / React Frontend
-  ├─ 显示 CityGS 渲染图
-  ├─ 捕获鼠标拖动、滚轮、WASD/QE
-  └─ 发送 CameraPose / camera.control
-          ↓ WebSocket
-Signaling Service
-  ├─ 创建 session
-  ├─ 分配 worker
-  └─ 转发 client ↔ worker 消息
-          ↓ WebSocket
-CityGS Worker (Node.js)
-  ├─ 接收 camera.control
-  ├─ 将 orbit camera pose 转成 CityGaussian R/T/FoVx/FoVy
-  ├─ 调用常驻 render_server HTTP API
-  ├─ 暴露 /frame.png 图片服务
-  └─ 回传 render stats + imageUrl
-          ↓ HTTP POST
-CityGaussian Render Server (Python)
-  ├─ 启动时加载 point_cloud.ply 一次
-  ├─ 构造 ViewerCam
-  ├─ 调用 diff_gaussian_rasterization CUDA 光栅化器
-  └─ 输出 PNG frame
-          ↓
-A6000 GPU / CUDA Rendering
+  -> WebSocket signaling
+  -> Node.js CityGS worker
+  -> Python render_server
+  -> CityGaussian CUDA rasterizer
+  -> PNG / MJPEG / WebRTC prototype
+  -> Browser display
 ```
+
+浏览器负责：
+
+- 显示渲染画面。
+- 捕获鼠标拖动、滚轮、WASD/QE 等相机控制。
+- 发送 `CameraPose` / `camera.control` 控制消息。
+- 选择模型档位、分辨率、质量和显示模式。
+
+A6000 服务器负责：
+
+- 加载 CityGS / CityGaussian 模型。
+- 接收相机参数。
+- 调用 CUDA rasterizer 渲染当前视角。
+- 通过图片帧、MJPEG 或 WebRTC 原型返回画面。
 
 ---
 
-## 2. 当前实现状态
+## 当前已实现
 
-### 已完成
+- React + TypeScript 前端页面。
+- WebSocket signaling 服务。
+- mock worker，用于协议和页面流程调试。
+- CityGS worker，用于真实服务端渲染。
+- 常驻 Python `render_server.py` 调用链路。
+- 前端 orbit camera 控制。
+- 鼠标拖动改变 yaw / pitch。
+- 滚轮改变 radius。
+- worker 将前端 camera pose 转换为 CityGaussian 相机参数。
+- A6000 上真实 CUDA 渲染。
+- `Latest PNG` 画面返回。
+- `MJPEG Stream` 连续图像流返回。
+- coarse / full / lod 三种模型档位。
+- 分辨率、FPS、质量档位配置。
+- Cloudflare Tunnel 临时公网预览。
+- WebRTC 原型入口。
+- TypeScript typecheck / build 通过。
 
-- React + TypeScript 前端页面
-- WebSocket signaling 服务
-- mock worker
-- CityGS worker
-- 常驻 Python `render_server.py`
-- 前端 orbit camera 控制
-- 鼠标拖动改变 yaw / pitch
-- 滚轮改变 radius
-- worker 将前端 camera pose 转为 CityGaussian 相机参数
-- CityGaussian 真实 CUDA 渲染
-- PNG frame 返回网页显示
-- Cloudflare Tunnel 公网预览支持
-- TypeScript typecheck / build 通过
+---
 
-### 当前真实渲染模型
+## 当前真实渲染模型
 
-调试模型：
+快速演示模型：
 
 ```text
 /root/ftl/CityGaussian/output_v1/mc_aerial_coarse
@@ -83,40 +79,21 @@ A6000 GPU / CUDA Rendering
 /root/ftl/CityGaussian/output_v1/mc_aerial_c36
 ```
 
-当前决策：默认演示继续使用 `mc_aerial_coarse`，`mc_aerial_c36` 作为高质量可选演示模型。
-
-对应完整点云：
+LOD 配置：
 
 ```text
-/root/ftl/CityGaussian/output_v1/mc_aerial_c36/point_cloud/iteration_30000/point_cloud.ply
+/root/ftl/CityGaussian/config/mc_aerial_c36_lod_output_v1.yaml
 ```
 
-### 当前性能参考
+当前建议：
 
-在 A6000 服务器上，`mc_aerial_coarse` 单帧渲染约：
-
-```text
-renderMs ≈ 130–180 ms
-end-to-end latency ≈ 250–300 ms
-GPU memory ≈ 4–6 GB
-```
-
-`mc_aerial_c36` 完整模型测试结果：
-
-```text
-load time ≈ 25.1 s
-steady GPU memory ≈ 9.0 GB
-after render GPU memory ≈ 13.3 GB
-renderMs ≈ 120–220 ms
-Cloudflare end-to-end latency ≈ 130–300 ms
-CUDA OOM: no
-```
-
-结论：完整模型可以运行且无 OOM，但加载更慢、显存占用更高。当前建议 coarse 作为默认演示模型，full 作为高质量展示模式。
+- 日常演示优先使用 `coarse`。
+- 高质量展示可切换 `full`。
+- 质量档位 / LOD 演示可切换 `lod`。
 
 ---
 
-## 3. 项目结构
+## 项目结构
 
 ```text
 citygs-remote-render-mvp/
@@ -124,14 +101,15 @@ citygs-remote-render-mvp/
 ├── signaling/       # WebSocket 信令服务
 ├── worker/          # mock worker + CityGS worker
 ├── shared/          # 前后端共享协议类型
-├── docs/            # 架构、接入、说明
+├── scripts/         # 启动脚本
+├── docs/            # 架构和接入说明
 └── README.md
 ```
 
 关键文件：
 
 ```text
-frontend/src/main.tsx             # 前端界面和 orbit camera 控制
+frontend/src/main.tsx             # 前端界面、相机控制、显示模式
 frontend/src/signalingClient.ts    # signaling client
 signaling/src/server.ts            # WebSocket signaling 服务
 worker/src/mock-worker.ts          # mock worker
@@ -144,56 +122,55 @@ A6000 服务器上的 CityGaussian 关键文件：
 ```text
 /root/ftl/CityGaussian/render_server.py
 /root/ftl/CityGaussian/render_one_frame.py
+/root/ftl/CityGaussian/render_webrtc_server.py
 /root/ftl/CityGaussian/viewer.py
 ```
 
 ---
 
-## 4. 如何启动
+## 启动方式
 
 以下命令默认在 A6000 服务器上执行。
 
-### 4.1 启动 CityGaussian render server
+### 1. 启动 render server
 
-推荐使用仓库内单服务脚本，方便配合 `screen` / `tmux` 管理。
-
-快速默认演示模式（coarse）：
+快速演示模型：
 
 ```bash
 cd /root/Projects/citygs-remote-render-mvp
 ./scripts/start-render-coarse.sh
 ```
 
-高质量完整模型模式（full）：
+高质量完整模型：
 
 ```bash
 cd /root/Projects/citygs-remote-render-mvp
 ./scripts/start-render-full.sh
 ```
 
-等价手动命令：
+LOD 模型：
 
 ```bash
-cd /root/ftl/CityGaussian
-conda run --no-capture-output -n citygs python render_server.py \
-  --model output_v1/mc_aerial_coarse \
-  --host 127.0.0.1 \
-  --port 9100
+cd /root/Projects/citygs-remote-render-mvp
+./scripts/start-render-lod.sh
 ```
 
-或：
+同时启动 coarse / full / lod：
 
 ```bash
-cd /root/ftl/CityGaussian
-conda run --no-capture-output -n citygs python render_server.py \
-  --model output_v1/mc_aerial_c36 \
-  --host 127.0.0.1 \
-  --port 9100
+cd /root/Projects/citygs-remote-render-mvp
+./scripts/start-render-all.sh
 ```
 
-建议：日常开发和快速演示使用 coarse；需要展示完整城市质量时再切换 full。
+默认端口：
 
-### 4.2 启动 signaling
+```text
+coarse -> http://127.0.0.1:9100/render
+full   -> http://127.0.0.1:9101/render
+lod    -> http://127.0.0.1:9102/render
+```
+
+### 2. 启动 signaling
 
 ```bash
 cd /root/Projects/citygs-remote-render-mvp
@@ -206,30 +183,25 @@ cd /root/Projects/citygs-remote-render-mvp
 ws://127.0.0.1:8788
 ```
 
-### 4.3 启动 CityGS worker
+### 3. 启动 CityGS worker
 
 ```bash
 cd /root/Projects/citygs-remote-render-mvp
-./scripts/start-citygs-worker.sh
+SIGNALING_URL=ws://127.0.0.1:8788 \
+CITYGS_RENDER_SERVER_URL_COARSE=http://127.0.0.1:9100/render \
+CITYGS_RENDER_SERVER_URL_FULL=http://127.0.0.1:9101/render \
+CITYGS_RENDER_SERVER_URL_LOD=http://127.0.0.1:9102/render \
+npm --workspace @citygs/worker run dev:citygs
 ```
 
-默认行为：
+worker 默认提供：
 
-- 连接 `ws://localhost:8788`
-- 调用 `http://127.0.0.1:9100/render`
-- 暴露 PNG：`http://127.0.0.1:8789/frame.png`
-
-可选环境变量：
-
-```bash
-SIGNALING_URL=ws://localhost:8788
-CITYGS_RENDER_SERVER_URL=http://127.0.0.1:9100/render
-CITYGS_FRAME_SERVER_PORT=8789
-CITYGS_PUBLIC_FRAME_BASE_URL=http://127.0.0.1:8789
-CITYGS_MIN_RENDER_INTERVAL_MS=500
+```text
+Latest PNG   -> http://127.0.0.1:8789/frame.png
+MJPEG Stream -> http://127.0.0.1:8789/stream.mjpg
 ```
 
-### 4.4 启动 frontend
+### 4. 启动 frontend
 
 ```bash
 cd /root/Projects/citygs-remote-render-mvp
@@ -244,9 +216,9 @@ http://127.0.0.1:5173
 
 ---
 
-## 5. 公网预览方式
+## 公网预览
 
-当前可以用 Cloudflare Tunnel 暴露三个服务。
+当前可以用 Cloudflare Tunnel 临时预览。
 
 ### frontend
 
@@ -266,138 +238,104 @@ cloudflared tunnel --url http://127.0.0.1:8788
 cloudflared tunnel --url http://127.0.0.1:8789
 ```
 
-然后在前端页面填写或确认：
+前端页面支持通过 URL 参数传入当前临时地址：
 
 ```text
-Signaling URL:
-wss://<signaling-tunnel>.trycloudflare.com
-
-Frame base URL:
-https://<frame-tunnel>.trycloudflare.com
+https://<frontend>.trycloudflare.com/?signalingUrl=wss://<signaling>.trycloudflare.com&frameBaseUrl=https://<frame>.trycloudflare.com
 ```
 
-这两个 URL 会自动保存到浏览器 localStorage。页面刷新后会自动：
+页面里也可以手动填写：
 
-1. 连接 signaling；
-2. 创建 render session；
-3. 请求第一帧 CityGS 渲染。
-
-之后直接鼠标拖动 / 滚轮缩放 / WASD-QE 控制视角即可。
-
-如果 tunnel 地址变化，重新填写 URL 后可点击：
-
-- `Reconnect`：重新连接 signaling 并自动开 session；
-- `Restart session`：在当前 signaling 连接下重新创建 session。
+```text
+Signaling URL  -> wss://<signaling-tunnel>.trycloudflare.com
+Frame base URL -> https://<frame-tunnel>.trycloudflare.com
+```
 
 ---
 
-## 6. 当前限制
+## 当前限制
 
-当前 MVP 是“可交互 PNG 刷新”版本，不是最终生产系统。
+当前项目是 MVP 演示系统，还不是生产部署。
 
 主要限制：
 
-1. **不是 WebRTC 视频流**
-   - 当前通过 PNG 文件刷新显示。
-   - 延迟和流畅度不如视频流。
+1. **MJPEG 不是最终视频流方案**
+   - 当前 `MJPEG Stream` 可演示连续画面。
+   - 但本质仍是连续图片，带宽和延迟不如 WebRTC。
 
-2. **相机控制是最小 orbit camera**
-   - 已能拖动改变视角。
-   - 但还不是完整 viewer 级别的自由漫游。
+2. **WebRTC 仍是原型**
+   - 前端已有 `WebRTC Video` 入口。
+   - 服务端已有 `render_webrtc_server.py` 启动脚本。
+   - 浏览器稳定播放、ICE/网络兼容、编码链路仍需继续调试。
 
-3. **Cloudflare trycloudflare 地址是临时地址**
+3. **Cloudflare quick tunnel 是临时地址**
    - 每次重启 tunnel 可能变化。
-   - 后续需要正式域名或固定 tunnel。
+   - 最终需要固定域名、HTTPS 和正式反向代理 / 命名隧道。
 
-4. **当前只适合单用户 MVP 演示**
-   - 没有多用户调度。
-   - 没有 session 资源隔离。
+4. **当前面向单用户演示**
+   - 还没有多用户调度。
+   - 还没有 GPU 资源隔离。
+   - 还没有访问控制。
 
-5. **还没有 NVENC 编码**
-   - 当前没有 H.264 / AV1 硬件编码。
-
-6. **还没有权限系统**
-   - 公网预览地址应只用于临时测试。
-   - 不建议长期公开暴露。
+5. **还没有 NVENC 编码链路**
+   - 当前还没有接入 H.264 / H.265 硬件编码。
+   - WebRTC 最终应结合 NVENC 提升延迟和带宽表现。
 
 ---
 
-## 7. 后续 WebRTC 计划
+## 后续路线
 
-最终目标是把当前 PNG 刷新链路升级为真正的低延迟远程渲染系统。
-
-### Phase 1：当前已完成
+### Phase 1：稳定当前 demo
 
 ```text
 Browser camera control
-→ signaling
-→ CityGS worker
-→ render_server
-→ PNG frame preview
+-> signaling
+-> CityGS worker
+-> render_server
+-> Latest PNG / MJPEG Stream
 ```
-
-作用：
-
-- 验证前端控制链路
-- 验证 A6000 真实 CityGS 渲染链路
-- 验证服务器端渲染结果能返回网页
-
-### Phase 2：改成连续图像流
-
-可选方案：
-
-- MJPEG stream
-- WebSocket binary image frames
-- HTTP frame polling 优化
 
 目标：
 
-```text
-比 PNG 文件刷新更流畅，但仍保持实现简单。
-```
+- 稳定 MJPEG 演示。
+- 优化相机控制手感。
+- 固化 coarse / full / lod 切换。
+- 整理一键启动脚本。
 
-### Phase 3：接入 NVENC + WebRTC
+### Phase 2：正式 WebRTC 视频流
 
 目标链路：
 
 ```text
 CityGaussian CUDA render
-→ GPU frame buffer
-→ NVENC H.264 / AV1 encode
-→ WebRTC video track
-→ Browser video element
+-> GPU frame buffer
+-> NVENC H.264 / H.265 encode
+-> WebRTC video track
+-> Browser video element
 ```
 
 控制通道：
 
 ```text
 Browser camera input
-→ WebRTC DataChannel
-→ GPU worker
+-> signaling / WebRTC DataChannel
+-> GPU render worker
 ```
 
-优势：
+### Phase 3：工程化部署
 
-- 更低延迟
-- 更高帧率
-- 更适合公网访问
-- 更接近云游戏 / Pixel Streaming 架构
+目标：
 
-### Phase 4：工程化部署
-
-后续可加入：
-
-- 固定域名 + HTTPS
-- 鉴权
-- TURN fallback
-- 多模型选择
-- 多用户 session
-- GPU 资源监控
-- 完整 `mc_aerial_c36` 模型演示
-- Kubernetes / 调度系统
+- 固定域名。
+- HTTPS。
+- 常驻服务。
+- 崩溃自动拉起。
+- 基础鉴权。
+- GPU 使用监控。
+- 简单并发限制。
 
 ---
 
-## 8. 用一句话总结
+## 一句话总结
 
-> 本项目实现了一个 CityGS 远程服务端渲染 MVP：用户在浏览器端操作相机，远程 A6000 GPU 服务器加载 CityGaussian 模型并进行 CUDA 渲染，将渲染结果返回网页显示。当前版本已完成真实渲染闭环，后续将进一步升级为基于 NVENC 和 WebRTC 的低延迟视频流传输系统。
+> 本项目实现了一个 CityGS 远程服务端渲染 MVP：用户在浏览器端操作相机，A6000 GPU 服务器加载 CityGaussian 模型并进行 CUDA 渲染，将结果通过 PNG / MJPEG / WebRTC 原型返回网页。当前可演示链路为 Latest PNG 和 MJPEG Stream，后续将升级为基于 NVENC 和 WebRTC 的低延迟视频流系统。
