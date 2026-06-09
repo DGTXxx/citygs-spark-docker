@@ -1,34 +1,64 @@
+import { execFile } from 'node:child_process';
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { readFile, rename, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { promisify } from 'node:util';
 import WebSocket from 'ws';
-import { CameraControlPacket, CameraPose, isProtocolMessage, makeId, ProtocolMessage } from '@citygs/shared';
+import { CameraControlPacket, CameraPose, isProtocolMessage, makeId, ModelVariant, ProtocolMessage } from '@citygs/shared';
 
 const signalingUrl = process.env.SIGNALING_URL ?? 'ws://localhost:8788';
 const workerId = process.env.WORKER_ID ?? makeId('citygs_worker');
-const renderServerUrl = process.env.CITYGS_RENDER_SERVER_URL ?? 'http://127.0.0.1:9100/render';
+const defaultRenderServerUrls: Record<ModelVariant, string> = {
+  coarse: 'http://127.0.0.1:9100/render',
+  full: 'http://127.0.0.1:9101/render',
+  lod: 'http://127.0.0.1:9102/render',
+};
+
+function envRenderServerUrls(): Record<ModelVariant, string> {
+  const urls = { ...defaultRenderServerUrls };
+  if (process.env.CITYGS_RENDER_SERVER_URL) {
+    // Backward compatibility: one URL means all variants route to the same server.
+    urls.coarse = process.env.CITYGS_RENDER_SERVER_URL;
+    urls.full = process.env.CITYGS_RENDER_SERVER_URL;
+    urls.lod = process.env.CITYGS_RENDER_SERVER_URL;
+  }
+  if (process.env.CITYGS_RENDER_SERVER_URL_COARSE) urls.coarse = process.env.CITYGS_RENDER_SERVER_URL_COARSE;
+  if (process.env.CITYGS_RENDER_SERVER_URL_FULL) urls.full = process.env.CITYGS_RENDER_SERVER_URL_FULL;
+  if (process.env.CITYGS_RENDER_SERVER_URL_LOD) urls.lod = process.env.CITYGS_RENDER_SERVER_URL_LOD;
+  return urls;
+}
+
+const renderServerUrls = envRenderServerUrls();
 const outputPath = process.env.CITYGS_OUTPUT_PATH ?? '/tmp/citygs-frame-worker.png';
+const jpegOutputPath = process.env.CITYGS_JPEG_OUTPUT_PATH ?? '/tmp/citygs-frame-worker.jpg';
+const jpegTempOutputPath = `${jpegOutputPath}.tmp`;
 const frameServerHost = process.env.CITYGS_FRAME_SERVER_HOST ?? '0.0.0.0';
 const frameServerPort = Number(process.env.CITYGS_FRAME_SERVER_PORT ?? 8789);
 const publicFrameBaseUrl = process.env.CITYGS_PUBLIC_FRAME_BASE_URL ?? `http://127.0.0.1:${frameServerPort}`;
-const minRenderIntervalMs = Number(process.env.CITYGS_MIN_RENDER_INTERVAL_MS ?? 500);
+const minRenderIntervalMs = Number(process.env.CITYGS_MIN_RENDER_INTERVAL_MS ?? 0);
 const renderTimeoutMs = Number(process.env.CITYGS_RENDER_TIMEOUT_MS ?? 30_000);
+const renderLoopFps = Number(process.env.CITYGS_RENDER_LOOP_FPS ?? 5);
+const streamFps = Number(process.env.CITYGS_STREAM_FPS ?? 8);
+const jpegQuality = Number(process.env.CITYGS_JPEG_QUALITY ?? 85);
+const execFileAsync = promisify(execFile);
 
 startFrameServer();
 
 const ws = new WebSocket(signalingUrl);
-const activeSessions = new Set<string>();
+const activeSessions = new Map<string, ModelVariant>();
+const activeSessionOptions = new Map<string, { maxWidth: number; maxHeight: number; maxFps?: number }>();
 
 let lastCamera: CameraControlPacket | undefined;
 let lastRenderStartedAt = 0;
 let renderInFlight = false;
+let streamClientCount = 0;
 
 // Match the known-good CityGaussian camera first, then orbit around a point
 // along its optical axis. This keeps the MVP camera inside the trained
 // MatrixCity coordinate range instead of orbiting an arbitrary origin.
 const orbitTarget: Vec3 = [-2.9289, -0.38, -5.5711];
-const imageWidth = 960;
-const imageHeight = 540;
+const defaultImageWidth = 960;
+const defaultImageHeight = 540;
 
 const fixedCamera: CityGsCamera = {
   R: [
@@ -39,8 +69,8 @@ const fixedCamera: CityGsCamera = {
   T: [-0.380000387199643, -6.010407885585369, 8.131727784392663],
   FoVx: 0.7853981852531432,
   FoVy: 0.45782234845589415,
-  width: imageWidth,
-  height: imageHeight,
+  width: defaultImageWidth,
+  height: defaultImageHeight,
   source_camera: 'fixed-0000',
 };
 
@@ -61,6 +91,7 @@ type RenderServerResponse = {
   ok: boolean;
   output?: string;
   renderMs?: number;
+  saveMs?: number;
   totalMs?: number;
   width?: number;
   height?: number;
@@ -97,8 +128,10 @@ function normalize(v: Vec3): Vec3 {
   return [v[0] / n, v[1] / n, v[2] / n];
 }
 
-function cameraFromPose(pose?: CameraPose): CityGsCamera {
-  if (!pose) return fixedCamera;
+function cameraFromPose(pose?: CameraPose, options?: { maxWidth?: number; maxHeight?: number }): CityGsCamera {
+  const width = Math.max(160, Math.round(options?.maxWidth ?? defaultImageWidth));
+  const height = Math.max(120, Math.round(options?.maxHeight ?? defaultImageHeight));
+  if (!pose) return { ...fixedCamera, width, height };
 
   const position = pose.position;
   const forward = normalize(sub(orbitTarget, position));
@@ -111,7 +144,7 @@ function cameraFromPose(pose?: CameraPose): CityGsCamera {
   const R: Mat3 = [right, down, forward];
   const T: Vec3 = [-dot(right, position), -dot(down, position), -dot(forward, position)];
   const FoVy = (pose.fovYDegrees * Math.PI) / 180;
-  const aspect = imageWidth / imageHeight;
+  const aspect = width / height;
   const FoVx = 2 * Math.atan(Math.tan(FoVy / 2) * aspect);
 
   return {
@@ -119,17 +152,76 @@ function cameraFromPose(pose?: CameraPose): CityGsCamera {
     T,
     FoVx,
     FoVy,
-    width: imageWidth,
-    height: imageHeight,
+    width,
+    height,
     source_camera: 'frontend-orbit',
   };
+}
+
+async function convertLatestFrameToJpeg() {
+  const script = `
+from PIL import Image
+img = Image.open(${JSON.stringify(outputPath)})
+img.load()
+if img.mode not in ('RGB', 'L'):
+    img = img.convert('RGB')
+img.save(${JSON.stringify(jpegTempOutputPath)}, 'JPEG', quality=${JSON.stringify(jpegQuality)}, optimize=True)
+`;
+  await execFileAsync('python', ['-c', script], { timeout: 10_000 });
+  await rename(jpegTempOutputPath, jpegOutputPath);
 }
 
 function startFrameServer() {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
-    if ((req.method !== 'GET' && req.method !== 'HEAD') || url.pathname !== '/frame.png') {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.writeHead(405, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: false, error: 'method not allowed' }));
+      return;
+    }
+
+    if (url.pathname === '/stream.mjpg') {
+      streamClientCount += 1;
+      console.log(`MJPEG client connected; streamClientCount=${streamClientCount}`);
+      res.writeHead(200, {
+        'Content-Type': 'multipart/x-mixed-replace; boundary=citygs-frame',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+      if (req.method === 'HEAD') {
+        res.end();
+        return;
+      }
+
+      let sending = false;
+      const sendLatestFrame = async () => {
+        if (sending || res.destroyed) return;
+        sending = true;
+        try {
+          const frame = await readFile(jpegOutputPath);
+          res.write(`--citygs-frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.byteLength}\r\n\r\n`);
+          res.write(frame);
+          res.write('\r\n');
+        } catch {
+          // The first CityGS frame may not exist yet. Keep the stream open and try again.
+        } finally {
+          sending = false;
+        }
+      };
+
+      void sendLatestFrame();
+      const interval = setInterval(sendLatestFrame, Math.max(50, Math.round(1000 / Math.max(1, streamFps))));
+      req.on('close', () => {
+        clearInterval(interval);
+        streamClientCount = Math.max(0, streamClientCount - 1);
+        console.log(`MJPEG client disconnected; streamClientCount=${streamClientCount}`);
+      });
+      return;
+    }
+
+    if (url.pathname !== '/frame.png') {
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ ok: false, error: 'not found' }));
       return;
     }
@@ -155,6 +247,8 @@ function startFrameServer() {
 
   server.listen(frameServerPort, frameServerHost, () => {
     console.log(`frame server listening on http://${frameServerHost}:${frameServerPort}/frame.png`);
+    console.log(`MJPEG stream listening on http://${frameServerHost}:${frameServerPort}/stream.mjpg @ ${streamFps}fps`);
+    console.log(`render loop target=${renderLoopFps}fps; renders only while MJPEG clients are connected`);
   });
 
   server.on('error', (error) => {
@@ -162,15 +256,16 @@ function startFrameServer() {
   });
 }
 
-async function postRenderRequest(camera: CityGsCamera): Promise<RenderServerResponse> {
+async function postRenderRequest(camera: CityGsCamera, modelVariant: ModelVariant): Promise<RenderServerResponse> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), renderTimeoutMs);
+  const renderServerUrl = renderServerUrls[modelVariant] ?? renderServerUrls.coarse;
 
   try {
     const response = await fetch(renderServerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ camera, output: outputPath }),
+      body: JSON.stringify({ camera, output: outputPath, modelVariant }),
       signal: controller.signal,
     });
 
@@ -203,6 +298,15 @@ async function postRenderRequest(camera: CityGsCamera): Promise<RenderServerResp
   }
 }
 
+function startRenderLoop() {
+  const intervalMs = Math.max(50, Math.round(1000 / Math.max(1, renderLoopFps)));
+  setInterval(() => {
+    if (streamClientCount <= 0) return;
+    if (!lastCamera) return;
+    void renderFrame(lastCamera.sessionId, lastCamera);
+  }, intervalMs);
+}
+
 async function renderFrame(sessionId: string, cameraPacket?: CameraControlPacket) {
   if (renderInFlight) {
     console.log('skip render: previous render is still running');
@@ -220,15 +324,22 @@ async function renderFrame(sessionId: string, cameraPacket?: CameraControlPacket
   const requestStart = Date.now();
 
   try {
-    const citygsCamera = cameraFromPose(cameraPacket?.pose);
-    const result = await postRenderRequest(citygsCamera);
+    const modelVariant = activeSessions.get(sessionId) ?? 'coarse';
+    const sessionOptions = activeSessionOptions.get(sessionId) ?? { maxWidth: defaultImageWidth, maxHeight: defaultImageHeight };
+    const citygsCamera = cameraFromPose(cameraPacket?.pose, sessionOptions);
+    const result = await postRenderRequest(citygsCamera, modelVariant);
+    const encodeStart = Date.now();
+    await convertLatestFrameToJpeg();
+    const encodeMs = Date.now() - encodeStart;
     const requestMs = Date.now() - requestStart;
     const renderMs = result.renderMs ?? requestMs;
+    const saveMs = result.saveMs ?? 0;
 
     console.log(
-      `CityGS render_server success: session=${sessionId} output=${result.output ?? outputPath} ` +
-      `renderMs=${renderMs.toFixed(2)} totalMs=${result.totalMs?.toFixed(2) ?? 'n/a'} requestMs=${requestMs} ` +
-      `camera=${citygsCamera.source_camera}`,
+      `CityGS render_server success: session=${sessionId} modelVariant=${modelVariant} output=${result.output ?? outputPath} ` +
+      `renderMs=${renderMs.toFixed(2)} saveMs=${saveMs.toFixed(2)} encodeMs=${encodeMs} ` +
+      `serverTotalMs=${result.totalMs?.toFixed(2) ?? 'n/a'} requestMs=${requestMs} ` +
+      `size=${citygsCamera.width}x${citygsCamera.height} camera=${citygsCamera.source_camera}`,
     );
 
     const imageUrl = `${publicFrameBaseUrl}/frame.png?t=${Date.now()}`;
@@ -239,9 +350,15 @@ async function renderFrame(sessionId: string, cameraPacket?: CameraControlPacket
       timestampMs: Date.now(),
       fps: 0,
       renderMs,
-      encodeMs: 0,
+      saveMs,
+      encodeMs,
       bitrateKbps: 0,
-      latencyMs: cameraPacket ? Date.now() - cameraPacket.timestampMs : undefined,
+      serverTotalMs: result.totalMs,
+      requestMs,
+      // In render-loop mode the latest camera timestamp may be old because we
+      // intentionally keep re-rendering the same pose. Report per-frame server
+      // processing latency instead of camera-packet age.
+      latencyMs: requestMs,
       gpuMemoryUsedMb: result.gpuMemoryPeakMb,
       imageUrl,
     });
@@ -262,15 +379,15 @@ ws.on('open', () => {
     capabilities: {
       renderer: 'citygs',
       codecs: ['h264'],
-      maxWidth: imageWidth,
-      maxHeight: imageHeight,
+      maxWidth: 1920,
+      maxHeight: 1080,
       maxFps: 2,
       gpuName: 'NVIDIA RTX A6000',
       gpuMemoryGb: 48,
     },
   });
   console.log(`citygs worker ${workerId} connected to ${signalingUrl}`);
-  console.log(`renderServerUrl=${renderServerUrl}`);
+  console.log(`renderServerUrls=${JSON.stringify(renderServerUrls)}`);
   console.log(`outputPath=${outputPath}`);
 });
 
@@ -279,18 +396,26 @@ ws.on('message', (raw) => {
   if (!isProtocolMessage(msg)) return;
 
   if (msg.type === 'session.assigned') {
-    activeSessions.add(msg.sessionId);
-    console.log(`assigned session=${msg.sessionId} scene=${msg.sceneId}`);
+    activeSessions.set(msg.sessionId, msg.modelVariant);
+    activeSessionOptions.set(msg.sessionId, {
+      maxWidth: msg.maxWidth ?? defaultImageWidth,
+      maxHeight: msg.maxHeight ?? defaultImageHeight,
+      maxFps: msg.maxFps,
+    });
+    console.log(`assigned session=${msg.sessionId} scene=${msg.sceneId} modelVariant=${msg.modelVariant} size=${msg.maxWidth ?? defaultImageWidth}x${msg.maxHeight ?? defaultImageHeight}`);
     return;
   }
 
   if (msg.type === 'camera.control') {
     lastCamera = msg;
+    const modelVariant = activeSessions.get(msg.sessionId) ?? 'unknown';
     const poseInfo = msg.pose ? `pose=[${msg.pose.position.map((v) => v.toFixed(2)).join(',')}]` : 'fixed-camera';
-    console.log(`camera packet seq=${msg.sequence} session=${msg.sessionId}; requesting CityGS render_server ${poseInfo}`);
-    void renderFrame(msg.sessionId, msg);
+    console.log(`camera packet seq=${msg.sequence} session=${msg.sessionId} modelVariant=${modelVariant}; saved latest camera ${poseInfo}`);
+    if (streamClientCount === 0) void renderFrame(msg.sessionId, msg);
   }
 });
+
+startRenderLoop();
 
 ws.on('close', () => {
   console.log('citygs worker disconnected from signaling');

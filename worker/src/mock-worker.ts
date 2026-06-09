@@ -1,10 +1,10 @@
 import WebSocket from 'ws';
-import { CameraControlPacket, isProtocolMessage, makeId, ProtocolMessage } from '@citygs/shared';
+import { CameraControlPacket, isProtocolMessage, makeId, ModelVariant, ProtocolMessage } from '@citygs/shared';
 
 const signalingUrl = process.env.SIGNALING_URL ?? 'ws://localhost:8788';
 const workerId = process.env.WORKER_ID ?? makeId('worker');
 const ws = new WebSocket(signalingUrl);
-const activeSessions = new Set<string>();
+const activeSessions = new Map<string, ModelVariant>();
 let lastCamera: CameraControlPacket | undefined;
 
 function send(msg: ProtocolMessage) {
@@ -32,17 +32,17 @@ ws.on('message', (raw) => {
   const msg = JSON.parse(raw.toString());
   if (!isProtocolMessage(msg)) return;
   if (msg.type === 'session.assigned') {
-    activeSessions.add(msg.sessionId);
-    console.log(`assigned session=${msg.sessionId} scene=${msg.sceneId}`);
+    activeSessions.set(msg.sessionId, msg.modelVariant);
+    console.log(`assigned session=${msg.sessionId} scene=${msg.sceneId} modelVariant=${msg.modelVariant}`);
   }
   if (msg.type === 'camera.control') {
     lastCamera = msg;
-    console.log(`camera packet seq=${msg.sequence} session=${msg.sessionId}`, msg.delta ?? msg.pose);
+    console.log(`camera packet seq=${msg.sequence} session=${msg.sessionId} modelVariant=${activeSessions.get(msg.sessionId) ?? 'unknown'}`, msg.delta ?? msg.pose);
   }
 });
 
 setInterval(() => {
-  for (const sessionId of activeSessions) {
+  for (const sessionId of activeSessions.keys()) {
     send({
       type: 'stats.render',
       sessionId,

@@ -1,4 +1,12 @@
-import { CameraControlPacket, makeId, ProtocolMessage, RenderStats, SessionAssigned } from '@citygs/shared';
+import { CameraControlPacket, makeId, ModelVariant, PreferredCodec, ProtocolMessage, RenderStats, SessionAssigned } from '@citygs/shared';
+
+export interface SessionOptions {
+  preferredCodec: PreferredCodec;
+  maxWidth: number;
+  maxHeight: number;
+  maxFps: number;
+  qualityPreset: 'low-latency' | 'balanced' | 'quality' | 'custom';
+}
 
 export class SignalingClient {
   readonly clientId = makeId('client');
@@ -34,8 +42,18 @@ export class SignalingClient {
     this.ws = undefined;
   }
 
-  requestSession(sceneId: string) {
-    return this.send({ type: 'session.request', clientId: this.clientId, sceneId, preferredCodec: 'h264', maxWidth: 1280, maxHeight: 720, maxFps: 60 });
+  requestSession(sceneId: string, modelVariant: ModelVariant, options: SessionOptions) {
+    return this.send({
+      type: 'session.request',
+      clientId: this.clientId,
+      sceneId,
+      modelVariant,
+      preferredCodec: options.preferredCodec,
+      maxWidth: options.maxWidth,
+      maxHeight: options.maxHeight,
+      maxFps: options.maxFps,
+      qualityPreset: options.qualityPreset,
+    });
   }
 
   sendCamera(packet: Omit<CameraControlPacket, 'type' | 'sessionId' | 'timestampMs'>) {

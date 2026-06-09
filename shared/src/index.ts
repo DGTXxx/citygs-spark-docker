@@ -1,4 +1,5 @@
 export type Role = 'client' | 'worker' | 'signaling';
+export type ModelVariant = 'coarse' | 'full' | 'lod';
 
 export type Vec3 = [number, number, number];
 export type Quaternion = [number, number, number, number];
@@ -28,14 +29,18 @@ export interface CameraControlPacket {
   };
 }
 
+export type PreferredCodec = 'h264' | 'av1';
+
 export interface SessionRequest {
   type: 'session.request';
   clientId: string;
   sceneId: string;
-  preferredCodec?: 'h264' | 'av1';
+  modelVariant: ModelVariant;
+  preferredCodec?: PreferredCodec;
   maxWidth?: number;
   maxHeight?: number;
   maxFps?: number;
+  qualityPreset?: 'low-latency' | 'balanced' | 'quality' | 'custom';
 }
 
 export interface SessionAssigned {
@@ -44,6 +49,12 @@ export interface SessionAssigned {
   clientId: string;
   workerId: string;
   sceneId: string;
+  modelVariant: ModelVariant;
+  preferredCodec?: PreferredCodec;
+  maxWidth?: number;
+  maxHeight?: number;
+  maxFps?: number;
+  qualityPreset?: 'low-latency' | 'balanced' | 'quality' | 'custom';
 }
 
 export interface WorkerRegister {
@@ -68,8 +79,11 @@ export interface RenderStats {
   timestampMs: number;
   fps: number;
   renderMs: number;
+  saveMs?: number;
   encodeMs: number;
   bitrateKbps: number;
+  serverTotalMs?: number;
+  requestMs?: number;
   latencyMs?: number;
   gpuMemoryUsedMb?: number;
   imageUrl?: string;

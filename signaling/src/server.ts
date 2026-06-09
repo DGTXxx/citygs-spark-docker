@@ -13,7 +13,7 @@ const wss = new WebSocketServer({ port });
 
 type ClientConn = { id: string; ws: WebSocket };
 type WorkerConn = { id: string; ws: WebSocket; info: WorkerRegister };
-type Session = { sessionId: string; clientId: string; workerId: string; sceneId: string };
+type Session = { sessionId: string; clientId: string; workerId: string; sceneId: string; modelVariant: SessionRequest['modelVariant']; request: SessionRequest };
 
 const clients = new Map<string, ClientConn>();
 const workers = new Map<string, WorkerConn>();
@@ -39,8 +39,16 @@ function handleSessionRequest(ws: WebSocket, msg: SessionRequest) {
     send(ws, { type: 'error', message: 'No CityGS worker is registered. Please start/restart the worker process.' });
     return;
   }
+  const modelVariant = msg.modelVariant ?? 'coarse';
   const sessionId = makeId('sess');
-  const session: Session = { sessionId, clientId: msg.clientId, workerId: worker.id, sceneId: msg.sceneId };
+  const session: Session = {
+    sessionId,
+    clientId: msg.clientId,
+    workerId: worker.id,
+    sceneId: msg.sceneId,
+    modelVariant,
+    request: msg,
+  };
   sessions.set(sessionId, session);
   const assigned: SessionAssigned = {
     type: 'session.assigned',
@@ -48,6 +56,12 @@ function handleSessionRequest(ws: WebSocket, msg: SessionRequest) {
     clientId: msg.clientId,
     workerId: worker.id,
     sceneId: msg.sceneId,
+    modelVariant,
+    preferredCodec: msg.preferredCodec,
+    maxWidth: msg.maxWidth,
+    maxHeight: msg.maxHeight,
+    maxFps: msg.maxFps,
+    qualityPreset: msg.qualityPreset,
   };
   send(ws, assigned);
   send(worker.ws, assigned);
