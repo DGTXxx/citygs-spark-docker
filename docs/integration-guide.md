@@ -1,74 +1,141 @@
 # CityGS / GPU Server Integration Guide
 
-## 1. Scene preparation
+## 1. Scene Preparation
 
-For the MVP, do not let users upload images or train online. Train CityGS/3DGS scenes offline from MatrixCity or your prepared dataset, then deploy trained models to the GPU server.
+Do not let users upload images or train online in this MVP. Train CityGS / 3DGS scenes offline from MatrixCity or prepared datasets, then deploy trained models to the A6000 GPU server.
 
-Suggested scene metadata:
+Current server-side model targets:
 
-```json
-{
-  "sceneId": "matrixcity-demo-block",
-  "modelPath": "/data/citygs/matrixcity-demo/model.ply",
-  "dataset": "MatrixCity"
-}
+```text
+coarse -> /root/ftl/CityGaussian/output_v1/mc_aerial_coarse
+full   -> /root/ftl/CityGaussian/output_v1/mc_aerial_c36
+lod    -> /root/ftl/CityGaussian/config/mc_aerial_c36_lod_output_v1.yaml
 ```
 
-## 2. Implement RenderCore
+## 2. Render Server
 
-Implement `RenderCore` from `worker/src/render-core.ts`:
+The current integration uses the Python `render_server.py` service in the CityGaussian environment.
 
-- `loadScene(scene)` loads Gaussian parameters/checkpoints into GPU memory.
-- `setCamera(pose)` maps browser camera to CityGS/gsplat view/projection matrices.
-- `renderFrame()` calls the CUDA rasterizer and returns a raw frame buffer.
-- `getStats()` reports render time, FPS, GPU memory, etc.
-- `dispose()` releases GPU resources.
+Expected render endpoints:
 
-## 3. Implement encoder bridge
+```text
+coarse -> http://127.0.0.1:9100/render
+full   -> http://127.0.0.1:9101/render
+lod    -> http://127.0.0.1:9102/render
+```
 
-Implement `VideoEncoderBridge` with NVIDIA NVENC:
+Start scripts:
 
-- MVP codec: H.264.
-- Later codec: AV1 on Ada-class or supported GPUs.
-- Keep render and encode asynchronous when possible.
+```bash
+./scripts/start-render-coarse.sh
+./scripts/start-render-full.sh
+./scripts/start-render-lod.sh
+./scripts/start-render-all.sh
+```
 
-## 4. Implement WebRTC publisher
+The render server should:
 
-Implement `WebRtcPublisher`:
+- load the model once at startup;
+- accept CityGaussian camera parameters;
+- render one frame with CUDA rasterization;
+- write the latest output image;
+- return render timing metadata.
 
-- Use Pion, LiveKit SDK, or a native WebRTC binding.
-- Signaling can continue through the existing signaling server.
-- Browser receives a real `MediaStream` and attaches it to a `<video>` element.
+## 3. CityGS Worker
 
-## 5. Camera packet format
+`worker/src/citygs-worker.ts` is the bridge between the web app and CityGaussian.
+
+It is responsible for:
+
+- registering with the signaling server;
+- receiving session assignments;
+- tracking selected model variant and render settings;
+- converting browser orbit camera poses into CityGaussian `R/T/FoVx/FoVy`;
+- calling the correct render server endpoint;
+- exposing `/frame.png` for latest-frame preview;
+- exposing `/stream.mjpg` for continuous image streaming;
+- reporting render stats back to the frontend.
+
+Recommended worker command:
+
+```bash
+SIGNALING_URL=ws://127.0.0.1:8788 \
+CITYGS_RENDER_SERVER_URL_COARSE=http://127.0.0.1:9100/render \
+CITYGS_RENDER_SERVER_URL_FULL=http://127.0.0.1:9101/render \
+CITYGS_RENDER_SERVER_URL_LOD=http://127.0.0.1:9102/render \
+npm --workspace @citygs/worker run dev:citygs
+```
+
+## 4. Frame Return Modes
+
+### Latest PNG
+
+The browser requests:
+
+```text
+GET /frame.png
+```
+
+This is simple and useful for debugging.
+
+### MJPEG Stream
+
+The browser displays:
+
+```text
+GET /stream.mjpg
+```
+
+This is the current practical video-like preview mode. It is still image-based, but it is easier to stabilize than WebRTC and works well for MVP demonstration.
+
+### WebRTC Prototype
+
+The current prototype server is started with:
+
+```bash
+./scripts/start-webrtc-coarse.sh
+```
+
+The final target is:
+
+```text
+CUDA render frame
+-> NVENC H.264 / H.265 encode
+-> WebRTC video track
+-> browser video element
+```
+
+The prototype path should be treated as experimental until browser playback is stable.
+
+## 5. Camera Packet Format
 
 Camera packets live in `shared/src/index.ts`.
 
-High-rate interaction should use:
-
-- `mode: "delta"` for mouse/keyboard movement.
-- unordered/unreliable WebRTC DataChannel in production.
-
-Periodic correction should use:
-
-- `mode: "snapshot"` with full camera pose.
-- reliable channel or ordered control message.
-
-## 6. Deployment notes
-
-First GPU-server deployment can be a single process:
+High-rate interaction currently uses snapshot-style camera packets over WebSocket:
 
 ```text
-signaling service on control node
-GPU worker on NVIDIA server
-frontend on any HTTPS host
+camera.control
 ```
 
-Later production deployment:
+The future WebRTC path may move high-rate camera control to a DataChannel, while keeping signaling for session setup and worker assignment.
 
-- Kubernetes GPU nodes
-- NVIDIA k8s-device-plugin
-- DCGM Exporter + Prometheus/Grafana
-- scene cache on NVMe
-- TURN fallback
-- admission control
+## 6. Deployment Notes
+
+The current preview can use temporary Cloudflare quick tunnels for:
+
+```text
+frontend
+signaling
+frame server
+optional WebRTC prototype server
+```
+
+Final deployment should move to:
+
+- stable domain;
+- HTTPS;
+- reverse proxy or named tunnel;
+- service manager such as systemd / pm2 / supervisor;
+- access control;
+- GPU monitoring;
+- simple concurrency limits.
