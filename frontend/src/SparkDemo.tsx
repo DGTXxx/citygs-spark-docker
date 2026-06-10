@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
 
-const defaultSplatUrl = '/models/mc_aerial_coarse_input.ply';
+const defaultSplatUrl = '/models/mc_aerial_c36_light_75_vq_preview_200k.ply';
 
 function getInitialSplatUrl() {
   if (typeof window === 'undefined') return defaultSplatUrl;
@@ -74,6 +74,11 @@ export function SparkDemo() {
         controls.update();
         setStats((current) => ({ ...current, splats: mesh.splats?.getNumSplats?.() ?? 0 }));
       },
+    });
+    splat.initialized.catch((loadError: unknown) => {
+      if (disposed) return;
+      setStatus('error');
+      setError(loadError instanceof Error ? loadError.message : String(loadError));
     });
     scene.add(splat);
 
@@ -147,4 +152,3 @@ export function SparkDemo() {
     </main>
   );
 }
-
