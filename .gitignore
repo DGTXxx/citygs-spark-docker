@@ -7,3 +7,4 @@ dist/
 logs/
 __pycache__/
 *.pyc
+frontend/public/models/

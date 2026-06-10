@@ -53,3 +53,17 @@ button { display: inline-flex; align-items: center; justify-content: center; bor
 .metricBar.save i { background: linear-gradient(90deg, #ffb454, #ffe0a8); }
 .metricBar.encode i { background: linear-gradient(90deg, #a46bff, #d1b5ff); }
 .metricBar.network i { background: linear-gradient(90deg, #25c2a0, #83f0d7); }
+
+.sparkPage { min-height: 100vh; display: grid; grid-template-rows: auto auto 1fr; background: #07111f; color: #e8eefc; }
+.sparkTopbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 24px 12px; border-bottom: 1px solid #22314a; }
+.sparkTopbar h1 { margin: 0; font-size: 24px; }
+.sparkTopbar p { margin: 6px 0 0; color: #9fb0cc; }
+.sparkLink { color: #cfe0ff; text-decoration: none; border: 1px solid #2d4770; border-radius: 8px; padding: 10px 12px; background: #152945; }
+.sparkControls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 14px 24px; border-bottom: 1px solid #22314a; background: #0b1728; color: #bfd0ec; }
+.sparkControls label { display: grid; gap: 6px; color: #9fb0cc; font-size: 12px; }
+.sparkControls input { width: min(620px, calc(100vw - 48px)); height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid #2a3a56; background: #0d1a2d; color: #fff; }
+.sparkControls span { min-height: 38px; display: inline-flex; align-items: center; }
+.sparkViewport { position: relative; min-height: 0; overflow: hidden; background: #02060d; }
+.sparkViewport canvas { display: block; width: 100%; height: 100%; }
+.sparkOverlay, .sparkError { position: absolute; left: 18px; top: 18px; z-index: 2; padding: 10px 12px; border-radius: 10px; background: rgba(8, 17, 31, .82); color: #e8eefc; border: 1px solid #2d4770; pointer-events: none; }
+.sparkError { top: 64px; background: rgba(220, 53, 69, .9); border-color: rgba(255,255,255,.25); }
