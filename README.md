@@ -103,6 +103,7 @@ citygs-remote-render-mvp/
 ├── shared/          # 前后端共享协议类型
 ├── scripts/         # 启动脚本
 ├── docs/            # 架构和接入说明
+├── examples/        # 可单独复用的实验方法和演示组件
 └── README.md
 ```
 
