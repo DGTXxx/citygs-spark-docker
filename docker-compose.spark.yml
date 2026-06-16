@@ -1,6 +1,7 @@
 services:
   spark-frontend:
     image: citygs-spark-frontend:amd64
+    platform: linux/amd64
     build:
       context: .
       dockerfile: frontend/Dockerfile.spark
@@ -12,6 +13,7 @@ services:
 
   spark-models:
     image: citygs-spark-models:amd64
+    platform: linux/amd64
     build:
       context: ./frontend/public
       dockerfile: Dockerfile.spark-models
