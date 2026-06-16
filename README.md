@@ -206,3 +206,7 @@ http://SERVER_IP:5173/
 - Mac build guide: `docs/mac-spark-docker-build.md`
 - Linux deployment guide: `docs/linux-spark-docker-deploy.md`
 - Offline handoff guide: `docs/spark-docker-handoff.md`
+
+## License
+
+Research and educational purposes.
