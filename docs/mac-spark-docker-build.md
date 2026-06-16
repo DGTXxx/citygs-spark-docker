@@ -130,6 +130,15 @@ Run:
 ./scripts/export-spark-docker.sh
 ```
 
+If Docker Hub times out while fetching `node` or `nginx`, retry with an image
+mirror:
+
+```bash
+NODE_IMAGE=docker.m.daocloud.io/library/node:22-bookworm-slim \
+NGINX_IMAGE=docker.m.daocloud.io/library/nginx:1.27-alpine \
+./scripts/export-spark-docker.sh
+```
+
 This builds:
 
 ```text

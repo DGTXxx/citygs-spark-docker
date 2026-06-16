@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLATFORM="${PLATFORM:-linux/amd64}"
 ARCHIVE="${ARCHIVE:-citygs-spark-amd64-docker-images.tar.gz}"
+NODE_IMAGE="${NODE_IMAGE:-node:22-bookworm-slim}"
+NGINX_IMAGE="${NGINX_IMAGE:-nginx:1.27-alpine}"
 
 cd "$ROOT_DIR"
 
@@ -39,6 +41,8 @@ fi
 
 docker buildx build \
   --platform "$PLATFORM" \
+  --build-arg NODE_IMAGE="$NODE_IMAGE" \
+  --build-arg NGINX_IMAGE="$NGINX_IMAGE" \
   -t citygs-spark-frontend:amd64 \
   -f frontend/Dockerfile.spark \
   --load \
@@ -46,6 +50,7 @@ docker buildx build \
 
 docker buildx build \
   --platform "$PLATFORM" \
+  --build-arg NGINX_IMAGE="$NGINX_IMAGE" \
   -t citygs-spark-models:amd64 \
   -f frontend/public/Dockerfile.spark-models \
   --load \
