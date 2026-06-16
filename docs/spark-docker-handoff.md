@@ -6,9 +6,9 @@ This package is for the browser-side SparkJS 3DGS viewer:
 http://SERVER_IP:5173/
 ```
 
-It follows the same handoff pattern as `campus-photo-collector`: build amd64
-Docker images, export them as a compressed archive, copy the archive plus the
-Compose file to the Ubuntu server, load the images, then start Compose.
+The handoff flow is: build amd64 Docker images, export them as a compressed
+archive, copy the archive plus the Compose file to the Ubuntu server, load the
+images, then start Compose.
 
 For local Mac build instructions, see:
 

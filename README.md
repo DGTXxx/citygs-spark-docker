@@ -1,26 +1,152 @@
 # CityGS Spark Docker
 
-CityGS / MatrixCity 的浏览器端 3D Gaussian Splatting 查看器，基于
-SparkJS 和 Three.js。这个仓库只保留 Spark 查看器和 Docker 交付相关文件，
-用于迁移、演示和服务器部署。
+A browser-side 3D Gaussian Splatting viewer for CityGS / MatrixCity scenes,
+powered by SparkJS and Three.js. This repository is focused on the Spark viewer
+and Docker handoff workflow, so it can be built on a local Mac and deployed on
+an x86_64 Ubuntu server.
 
-模型文件不提交到 GitHub，统一放在 Hugging Face：
+Model files are stored separately on Hugging Face:
 
 ```text
 https://huggingface.co/datasets/DGTXxx/citygs-spark-assets
 ```
 
-## 功能
+## Features
 
-- 浏览器端加载 `.ply` / `.spz` 3DGS 模型。
-- 模型档位切换：200k、1000k、3000k、Coarse、LOD 1/2/3、Full。
-- 视角预设：城市总览、俯视结构、低空斜看、侧向观察。
-- 自定义 `Splat URL` 加载。
-- 状态、FPS、splat 数量、模型体积和加载耗时显示。
-- Docker 双镜像交付：前端镜像 + 模型资源镜像。
-- 支持导出 `linux/amd64` 离线 Docker 包。
+- Browser-side 3DGS rendering with SparkJS.
+- `.ply` and `.spz` splat model loading.
+- Model level switching: 200k, 1000k, 3000k, Coarse, LOD 1/2/3, and Full.
+- Camera presets: city overview, top-down structure, low oblique view, and side view.
+- Custom `Splat URL` input for loading other model files.
+- Runtime status display: FPS, splat count, model size, and load time.
+- Docker handoff with two images: frontend image and model-assets image.
+- amd64 Docker export for x86_64 Ubuntu deployment.
 
-## 目录
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+ and npm, for local development or source build.
+- Docker Desktop on Mac, or Docker Engine on Linux.
+- Hugging Face CLI, for downloading model assets.
+
+Install the Hugging Face tools:
+
+```bash
+python3 -m pip install -U huggingface_hub hf_transfer
+```
+
+### Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/DGTXxx/citygs-spark-docker.git
+cd citygs-spark-docker
+```
+
+Install JavaScript dependencies:
+
+```bash
+npm install
+```
+
+Download the Spark model assets:
+
+```bash
+HF_HUB_ENABLE_HF_TRANSFER=1 hf download DGTXxx/citygs-spark-assets \
+  --repo-type dataset \
+  --include "models/*" \
+  --local-dir frontend/public
+```
+
+Check that the model directory exists:
+
+```bash
+du -sh frontend/public/models
+ls frontend/public/models | head
+```
+
+Start the local development server:
+
+```bash
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:5173/
+```
+
+## Docker Deployment
+
+### Build amd64 Images On Mac
+
+Build the amd64 images and export them as one compressed archive:
+
+```bash
+NODE_IMAGE=docker.m.daocloud.io/library/node:22-bookworm-slim \
+NGINX_IMAGE=docker.m.daocloud.io/library/nginx:1.27-alpine \
+./scripts/export-spark-docker.sh
+```
+
+This creates:
+
+```text
+citygs-spark-amd64-docker-images.tar.gz
+```
+
+The archive contains:
+
+```text
+citygs-spark-frontend:amd64
+citygs-spark-models:amd64
+```
+
+### Test Locally
+
+Start the Docker version locally:
+
+```bash
+docker compose -f docker-compose.spark.yml up -d
+```
+
+Open:
+
+```text
+http://localhost:5173/
+```
+
+Stop:
+
+```bash
+docker compose -f docker-compose.spark.yml down
+```
+
+### Deploy On Ubuntu Server
+
+Copy these two files to the target server:
+
+```text
+citygs-spark-amd64-docker-images.tar.gz
+docker-compose.spark.yml
+```
+
+Load and start the images:
+
+```bash
+docker load -i citygs-spark-amd64-docker-images.tar.gz
+docker compose -f docker-compose.spark.yml up -d
+```
+
+Open:
+
+```text
+http://SERVER_IP:5173/
+```
+
+## Project Structure
 
 ```text
 .
@@ -42,81 +168,10 @@ https://huggingface.co/datasets/DGTXxx/citygs-spark-assets
     └── spark-docker-handoff.md
 ```
 
-## Mac 本地快速运行
+## Notes
 
-安装 Docker Desktop 后，在项目根目录下载模型：
-
-```bash
-python3 -m pip install -U huggingface_hub hf_transfer
-HF_HUB_ENABLE_HF_TRANSFER=1 hf download DGTXxx/citygs-spark-assets \
-  --repo-type dataset \
-  --include "models/*" \
-  --local-dir frontend/public
-```
-
-确认模型目录存在：
-
-```bash
-du -sh frontend/public/models
-ls frontend/public/models | head
-```
-
-构建 amd64 Docker 离线包：
-
-```bash
-NODE_IMAGE=docker.m.daocloud.io/library/node:22-bookworm-slim \
-NGINX_IMAGE=docker.m.daocloud.io/library/nginx:1.27-alpine \
-./scripts/export-spark-docker.sh
-```
-
-本地启动：
-
-```bash
-docker compose -f docker-compose.spark.yml up -d
-```
-
-访问：
-
-```text
-http://localhost:5173/
-```
-
-停止：
-
-```bash
-docker compose -f docker-compose.spark.yml down
-```
-
-## 离线部署
-
-构建完成后会生成：
-
-```text
-citygs-spark-amd64-docker-images.tar.gz
-```
-
-把下面两个文件拷到目标服务器：
-
-```text
-citygs-spark-amd64-docker-images.tar.gz
-docker-compose.spark.yml
-```
-
-目标服务器执行：
-
-```bash
-docker load -i citygs-spark-amd64-docker-images.tar.gz
-docker compose -f docker-compose.spark.yml up -d
-```
-
-访问：
-
-```text
-http://SERVER_IP:5173/
-```
-
-## 文档
-
-- Mac 本地构建：`docs/mac-spark-docker-build.md`
-- 离线交付：`docs/spark-docker-handoff.md`
-
+- Do not commit `frontend/public/models/` to GitHub.
+- Do not commit `citygs-spark-amd64-docker-images.tar.gz` to a normal GitHub repository.
+- Full model assets are distributed through Hugging Face.
+- Detailed Mac build guide: `docs/mac-spark-docker-build.md`.
+- Detailed handoff guide: `docs/spark-docker-handoff.md`.
