@@ -97,7 +97,7 @@ If the assets have been uploaded to Hugging Face, download them instead:
 
 ```bash
 pip install -U huggingface_hub
-huggingface-cli download DGTXxx/citygs-spark-assets \
+hf download DGTXxx/citygs-spark-assets \
   --repo-type dataset \
   --include "models/*" \
   --local-dir frontend/public
