@@ -86,10 +86,10 @@ const modelPresets: ModelPreset[] = [
 ];
 
 const cameraPresets: CameraPreset[] = [
-  { key: 'overview', label: '城市总览', offset: new THREE.Vector3(0, -0.42, 0.24) },
-  { key: 'top', label: '俯视结构', offset: new THREE.Vector3(0.02, -0.06, 0.62) },
-  { key: 'low', label: '低空斜看', offset: new THREE.Vector3(0.3, -0.42, 0.14) },
-  { key: 'side', label: '侧向观察', offset: new THREE.Vector3(0.46, -0.06, 0.22) },
+  { key: 'overview', label: 'Overview', offset: new THREE.Vector3(0, -0.42, 0.24) },
+  { key: 'top', label: 'Top Down', offset: new THREE.Vector3(0.02, -0.06, 0.62) },
+  { key: 'low', label: 'Low Oblique', offset: new THREE.Vector3(0.3, -0.42, 0.14) },
+  { key: 'side', label: 'Side View', offset: new THREE.Vector3(0.46, -0.06, 0.22) },
 ];
 
 function getInitialSplatUrl() {
@@ -273,13 +273,13 @@ export function SparkDemo() {
       <section className="sparkTopbar">
         <div>
           <h1>CityGS Spark Viewer</h1>
-          <p>浏览器端 3DGS 渲染，模型资源随 Docker 交付包迁移。</p>
+          <p>Browser-side 3DGS rendering with model assets packaged for Docker handoff.</p>
         </div>
       </section>
 
       <section className="sparkControls">
         <div className="sparkControlGroup">
-          <span className="sparkControlLabel">模型档位</span>
+          <span className="sparkControlLabel">Model Level</span>
           <div className="sparkButtonRow">
             {modelPresets.map((preset) => (
               <button
@@ -294,7 +294,7 @@ export function SparkDemo() {
         </div>
 
         <div className="sparkControlGroup">
-          <span className="sparkControlLabel">视角</span>
+          <span className="sparkControlLabel">Camera View</span>
           <div className="sparkButtonRow">
             {cameraPresets.map((preset) => (
               <button

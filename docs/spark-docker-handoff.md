@@ -84,7 +84,7 @@ docker compose -f docker-compose.spark.yml down
 ## GitHub Storage Note
 
 Do not commit `citygs-spark-amd64-docker-images.tar.gz` to a normal GitHub
-repository. The Spark model directory is about 2.9 GB, and GitHub repositories
+repository. The Spark model directory is about 3.8 GB, and GitHub repositories
 are not suitable for that kind of binary artifact. Prefer one of these:
 
 - push the images to GitHub Container Registry;
