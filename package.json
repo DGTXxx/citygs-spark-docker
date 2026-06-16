@@ -1,15 +1,13 @@
 {
-  "name": "citygs-remote-render-mvp",
+  "name": "citygs-spark-docker",
   "private": true,
   "version": "0.1.0",
-  "description": "MVP scaffold for remote real-time server-side CityGS / 3D Gaussian Splatting rendering over the web.",
-  "workspaces": ["frontend", "signaling", "worker", "shared"],
+  "description": "SparkJS browser-side 3D Gaussian Splatting viewer packaged for Docker handoff.",
+  "workspaces": ["frontend"],
   "scripts": {
-    "dev:frontend": "npm --workspace frontend run dev",
-    "dev:signaling": "npm --workspace signaling run dev",
-    "dev:worker": "npm --workspace worker run dev",
-    "build": "npm --workspace @citygs/shared run build && npm --workspace @citygs/frontend run build && npm --workspace @citygs/signaling run build && npm --workspace @citygs/worker run build",
-    "typecheck": "npm --workspace @citygs/shared run build && npm --workspace @citygs/shared run typecheck && npm --workspace @citygs/frontend run typecheck && npm --workspace @citygs/signaling run typecheck && npm --workspace @citygs/worker run typecheck"
+    "dev": "npm --workspace @citygs-spark/frontend run dev",
+    "build": "npm --workspace @citygs-spark/frontend run build",
+    "typecheck": "npm --workspace @citygs-spark/frontend run typecheck"
   },
   "engines": { "node": ">=20" }
 }

@@ -6,7 +6,7 @@ This guide is written as command-first instructions for building the SparkJS
 The final browser URL is:
 
 ```text
-http://localhost:5173/?spark=1
+http://localhost:5173/
 ```
 
 ## 0. What Must Exist Locally
@@ -166,7 +166,7 @@ docker compose -f docker-compose.spark.yml up -d
 Open:
 
 ```text
-http://localhost:5173/?spark=1
+http://localhost:5173/
 ```
 
 Check logs if needed:
@@ -201,7 +201,7 @@ docker compose -f docker-compose.spark.yml up -d
 Open:
 
 ```text
-http://SERVER_IP:5173/?spark=1
+http://SERVER_IP:5173/
 ```
 
 ## 7. GitHub Storage

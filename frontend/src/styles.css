@@ -1,84 +1,207 @@
-:root { font-family: Inter, system-ui, sans-serif; color: #e8eefc; background: #08111f; }
-body { margin: 0; overscroll-behavior: none; }
-.app { padding: 28px; }
-.hero h1 { margin: 0; font-size: 34px; }
-.hero p { color: #9fb0cc; }
-.toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 20px 0; }
-.toolbar label { display: grid; gap: 6px; color: #9fb0cc; font-size: 12px; }
-.toolbar input, .toolbar select, button { height: 42px; box-sizing: border-box; }
-.toolbar input, .toolbar select { min-width: 260px; padding: 0 12px; border-radius: 8px; border: 1px solid #2a3a56; background: #0d1a2d; color: #fff; }
-.toolbar select { min-width: 170px; }
-button { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; padding: 0 14px; background: #4e8cff; color: #fff; cursor: pointer; }
-.layout { display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
-.viewerColumn { display: grid; gap: 12px; }
-.viewport { position: relative; height: 64vh; min-height: 420px; border: 1px solid #22314a; border-radius: 16px; background: radial-gradient(circle at center, #18345d, #091321 70%); overflow: hidden; outline: none; overscroll-behavior: contain; touch-action: none; cursor: grab; user-select: none; }
-.viewport:active { cursor: grabbing; }
-.videoPlaceholder { position: absolute; inset: 28px; display: grid; place-items: center; border: 1px dashed #7ca9ff; border-radius: 14px; color: #b9cdf5; font-size: 22px; }
-.renderFrame { position: absolute; inset: 28px; width: calc(100% - 56px); height: calc(100% - 56px); object-fit: contain; border: 1px solid #243b63; border-radius: 14px; background: #02060d; user-select: none; pointer-events: none; }
-.hint { position: absolute; left: 20px; bottom: 18px; color: #dbe7ff; background: rgba(0,0,0,.35); padding: 8px 12px; border-radius: 999px; pointer-events: none; }
-.orbitBar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 16px; border: 1px solid #22314a; border-radius: 12px; background: #0d1a2d; color: #bfd0ec; }
-.orbitBar b { color: #e8eefc; }
-.orbitBar span { white-space: nowrap; }
-.renderingBadge { position: absolute; top: 20px; right: 20px; color: #fff; background: rgba(78, 140, 255, .88); padding: 8px 12px; border-radius: 999px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.25); pointer-events: none; }
-.errorBadge { position: absolute; top: 62px; right: 20px; max-width: min(520px, calc(100% - 40px)); color: #fff; background: rgba(220, 53, 69, .92); padding: 10px 12px; border-radius: 12px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.25); pointer-events: none; }
-.panel { background: #0d1a2d; border: 1px solid #22314a; border-radius: 16px; padding: 18px; }
-.panel h2 { margin-bottom: 8px; }
-.panel p { color: #bfd0ec; }
+:root {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #e8eefc;
+  background: #07111f;
+}
 
-.presentationGrid { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 18px; }
-.presentationGridSingle .routeCard { width: 100%; box-sizing: border-box; }
-.routeCard { background: linear-gradient(180deg, rgba(13, 26, 45, .98), rgba(8, 17, 31, .98)); border: 1px solid #22314a; border-radius: 16px; padding: 18px; box-shadow: 0 16px 40px rgba(0,0,0,.18); }
-.sectionHeader { margin-bottom: 16px; }
-.sectionHeader h2 { margin: 4px 0 8px; font-size: 22px; }
-.sectionHeader p { margin: 0; color: #9fb0cc; line-height: 1.6; }
-.eyebrow { color: #7ca9ff; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.pipeline { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 12px; }
-.pipelineStep { position: relative; min-height: 170px; padding: 14px; border: 1px solid #2a3a56; border-radius: 14px; background: rgba(10, 24, 43, .86); }
-.pipelineStep:not(:last-child)::after { content: '→'; position: absolute; right: -14px; top: 50%; transform: translateY(-50%); color: #7ca9ff; font-weight: 800; z-index: 2; }
-.stepIndex { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 999px; background: #4e8cff; color: #fff; font-weight: 800; font-size: 13px; }
-.pipelineStep h3 { margin: 12px 0 6px; font-size: 16px; }
-.pipelineStep p { margin: 0; color: #bfd0ec; line-height: 1.45; }
-.pipelineStep small { display: block; margin-top: 10px; color: #8fa4c5; line-height: 1.45; }
-@media (max-width: 1180px) { .layout, .presentationGrid { grid-template-columns: 1fr; } .pipeline { grid-template-columns: 1fr; } .pipelineStep:not(:last-child)::after { content: '↓'; right: 18px; top: auto; bottom: -18px; transform: none; } }
-.inlineInputs { display: inline-flex; align-items: center; gap: 8px; }
-.inlineInputs input { min-width: 96px; width: 108px; }
-.inlineInputs span { color: #9fb0cc; font-weight: 700; }
-.presetBar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid #22314a; border-radius: 12px; background: #0d1a2d; color: #bfd0ec; }
-.presetBar b { color: #e8eefc; margin-right: 4px; }
-.secondaryButton { height: 34px; padding: 0 12px; background: #152945; border: 1px solid #2d4770; color: #cfe0ff; }
-.secondaryButton:hover { background: #1d365a; }
-.metricBar { position: relative; height: 34px; margin: 10px 0; overflow: hidden; border: 1px solid #25405f; border-radius: 999px; background: #081421; }
-.metricBar span { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; padding: 0 12px; color: #e8eefc; font-size: 13px; }
-.metricBar i { position: absolute; inset: 0 auto 0 0; min-width: 2px; max-width: 100%; background: linear-gradient(90deg, #4e8cff, #7ca9ff); border-radius: inherit; }
-.metricBar.save i { background: linear-gradient(90deg, #ffb454, #ffe0a8); }
-.metricBar.encode i { background: linear-gradient(90deg, #a46bff, #d1b5ff); }
-.metricBar.network i { background: linear-gradient(90deg, #25c2a0, #83f0d7); }
+body {
+  margin: 0;
+  overscroll-behavior: none;
+}
 
-.sparkPage { min-height: 100vh; display: grid; grid-template-rows: auto auto auto 1fr; background: #07111f; color: #e8eefc; }
-.sparkTopbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 24px 12px; border-bottom: 1px solid #22314a; }
-.sparkTopbar h1 { margin: 0; font-size: 24px; }
-.sparkTopbar p { margin: 6px 0 0; color: #9fb0cc; }
-.sparkLink { color: #cfe0ff; text-decoration: none; border: 1px solid #2d4770; border-radius: 8px; padding: 10px 12px; background: #152945; }
-.sparkControls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 18px; padding: 14px 24px; border-bottom: 1px solid #22314a; background: #0b1728; color: #bfd0ec; }
-.sparkControlGroup { display: grid; gap: 7px; }
-.sparkControlLabel { color: #9fb0cc; font-size: 12px; }
-.sparkButtonRow { display: flex; flex-wrap: wrap; gap: 8px; }
-.sparkButton { height: 38px; min-width: 104px; display: grid; align-content: center; gap: 2px; padding: 0 12px; border: 1px solid #2d4770; background: #152945; color: #dce8ff; text-align: center; }
-.sparkButton strong { font-size: 13px; line-height: 1.1; }
-.sparkButton.compact { min-width: auto; height: 38px; display: inline-flex; text-align: center; }
-.sparkButton.active { background: #4e8cff; border-color: #86b1ff; color: #fff; }
-.sparkControls label { display: grid; gap: 6px; color: #9fb0cc; font-size: 12px; }
-.sparkControls input { width: min(620px, calc(100vw - 48px)); height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid #2a3a56; background: #0d1a2d; color: #fff; }
-.sparkControls span { min-height: 38px; display: inline-flex; align-items: center; }
-.sparkStats { display: grid; grid-template-columns: repeat(5, minmax(104px, 1fr)); gap: 1px; border-bottom: 1px solid #22314a; background: #22314a; }
-.sparkStats span { min-height: 54px; display: grid; align-content: center; gap: 4px; padding: 0 16px; background: #081421; color: #e8eefc; }
-.sparkStats b { color: #8fa4c5; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-.sparkViewport { position: relative; min-height: 0; overflow: hidden; background: #02060d; }
-.sparkViewport canvas { display: block; width: 100%; height: 100%; }
-.sparkOverlay, .sparkError { position: absolute; left: 18px; top: 18px; z-index: 2; padding: 10px 12px; border-radius: 10px; background: rgba(8, 17, 31, .82); color: #e8eefc; border: 1px solid #2d4770; pointer-events: none; }
-.sparkError { top: 64px; background: rgba(220, 53, 69, .9); border-color: rgba(255,255,255,.25); }
+button,
+input {
+  font: inherit;
+}
+
+button {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #4e8cff;
+  color: #fff;
+  cursor: pointer;
+}
+
+.sparkPage {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  background: #07111f;
+  color: #e8eefc;
+}
+
+.sparkTopbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 24px 12px;
+  border-bottom: 1px solid #22314a;
+}
+
+.sparkTopbar h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.sparkTopbar p {
+  margin: 6px 0 0;
+  color: #9fb0cc;
+}
+
+.sparkControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 18px;
+  padding: 14px 24px;
+  border-bottom: 1px solid #22314a;
+  background: #0b1728;
+  color: #bfd0ec;
+}
+
+.sparkControlGroup {
+  display: grid;
+  gap: 7px;
+}
+
+.sparkControlLabel {
+  color: #9fb0cc;
+  font-size: 12px;
+}
+
+.sparkButtonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sparkButton {
+  min-width: 104px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  border: 1px solid #2d4770;
+  background: #152945;
+  color: #dce8ff;
+  text-align: center;
+}
+
+.sparkButton strong {
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.sparkButton.compact {
+  min-width: auto;
+  display: inline-flex;
+  text-align: center;
+}
+
+.sparkButton.active {
+  background: #4e8cff;
+  border-color: #86b1ff;
+  color: #fff;
+}
+
+.sparkControls label {
+  display: grid;
+  gap: 6px;
+  color: #9fb0cc;
+  font-size: 12px;
+}
+
+.sparkControls input {
+  width: min(620px, calc(100vw - 48px));
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #2a3a56;
+  background: #0d1a2d;
+  color: #fff;
+}
+
+.sparkControls span {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.sparkStats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(104px, 1fr));
+  gap: 1px;
+  border-bottom: 1px solid #22314a;
+  background: #22314a;
+}
+
+.sparkStats span {
+  min-height: 54px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 0 16px;
+  background: #081421;
+  color: #e8eefc;
+}
+
+.sparkStats b {
+  color: #8fa4c5;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sparkViewport {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: #02060d;
+}
+
+.sparkViewport canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sparkOverlay,
+.sparkError {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  z-index: 2;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(8, 17, 31, .82);
+  color: #e8eefc;
+  border: 1px solid #2d4770;
+  pointer-events: none;
+}
+
+.sparkError {
+  top: 64px;
+  background: rgba(220, 53, 69, .9);
+  border-color: rgba(255,255,255,.25);
+}
+
 @media (max-width: 860px) {
-  .sparkTopbar { align-items: flex-start; flex-direction: column; }
-  .sparkStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .sparkButton { min-width: 112px; }
+  .sparkTopbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sparkStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sparkButton {
+    min-width: 112px;
+  }
 }

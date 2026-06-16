@@ -273,9 +273,8 @@ export function SparkDemo() {
       <section className="sparkTopbar">
         <div>
           <h1>CityGS Spark Viewer</h1>
-          <p>浏览器本地 3DGS 渲染，优先用于流畅交互和网页演示。</p>
+          <p>浏览器端 3DGS 渲染，模型资源随 Docker 交付包迁移。</p>
         </div>
-        <a className="sparkLink" href="/">Server render</a>
       </section>
 
       <section className="sparkControls">

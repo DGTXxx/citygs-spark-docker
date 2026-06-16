@@ -3,7 +3,7 @@
 This package is for the browser-side SparkJS 3DGS viewer:
 
 ```text
-http://SERVER_IP:5173/?spark=1
+http://SERVER_IP:5173/
 ```
 
 It follows the same handoff pattern as `campus-photo-collector`: build amd64
@@ -72,7 +72,7 @@ docker compose -f docker-compose.spark.yml up -d
 Open:
 
 ```text
-http://SERVER_IP:5173/?spark=1
+http://SERVER_IP:5173/
 ```
 
 ## Stop
