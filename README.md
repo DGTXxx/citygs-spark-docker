@@ -133,6 +133,66 @@ A6000 服务器上的 CityGaussian 关键文件：
 
 以下命令默认在 A6000 服务器上执行。
 
+### Docker 部署
+
+如果只部署网页、signaling 和 Node.js worker，可以使用 Docker Compose：
+
+```bash
+docker compose --profile citygs up -d --build
+```
+
+该方式默认要求 CityGaussian render server 仍运行在宿主机
+`9100/9101/9102` 端口，worker 容器通过 `host.docker.internal` 调用它们。
+上次加的浏览器端 SparkJS / 3DGS 预览也包含在同一个前端镜像里，入口是
+`http://服务器IP:5173/?spark=1`，模型资源通过 `frontend/public/models`
+挂载到容器的 `/usr/share/nginx/html/models`。
+无 GPU 渲染服务时，可用 mock worker 验证网页和信令链路：
+
+```bash
+docker compose --profile mock up -d --build
+```
+
+详细说明见：
+
+```text
+docs/docker-deployment.md
+```
+
+如果重点是上次加的 SparkJS / 浏览器端 3DGS 方法，并且希望模型也在
+Docker 里一起迁移，使用 Spark 专用 compose：
+
+```bash
+docker compose -f docker-compose.spark.yml up -d --build
+```
+
+访问：
+
+```text
+http://服务器IP:5173/?spark=1
+```
+
+这条路线会构建两个镜像：
+
+```text
+citygs-spark-frontend:amd64
+citygs-spark-models:amd64
+```
+
+可以用 `docker save | gzip` 压成一个离线包，但不要直接提交到 GitHub
+普通仓库；更推荐推到 GHCR，或者小体积演示包放 GitHub Release。
+参照 `campus-photo-collector` 的离线迁移方式，可直接运行：
+
+```bash
+./scripts/export-spark-docker.sh
+```
+
+详细交付说明见：
+
+```text
+docs/spark-docker-handoff.md
+docs/mac-spark-docker-build.md
+```
+
 ### 1. 启动 render server
 
 快速演示模型：

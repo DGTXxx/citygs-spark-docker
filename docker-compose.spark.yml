@@ -1,0 +1,18 @@
+services:
+  spark-frontend:
+    image: citygs-spark-frontend:amd64
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.spark
+    ports:
+      - "5173:80"
+    depends_on:
+      - spark-models
+    restart: unless-stopped
+
+  spark-models:
+    image: citygs-spark-models:amd64
+    build:
+      context: ./frontend/public
+      dockerfile: Dockerfile.spark-models
+    restart: unless-stopped

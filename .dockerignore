@@ -1,0 +1,12 @@
+.git
+node_modules
+*/node_modules
+frontend/dist
+logs
+*.log
+*.tsbuildinfo
+
+# Keep the Docker image small. Mount these model assets into the frontend
+# container through docker-compose when they are available on the host.
+frontend/public/models
+
