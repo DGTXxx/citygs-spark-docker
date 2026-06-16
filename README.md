@@ -1,5 +1,59 @@
 # CityGS Remote Render MVP
 
+## Spark Docker 交付版
+
+本仓库当前可作为 **CityGS SparkJS 浏览器端 3DGS 查看器** 的 Docker 交付包。
+
+已验证链路：
+
+- Mac 本地下载 Hugging Face 模型资产。
+- 构建 `linux/amd64` Docker 镜像。
+- 导出离线包 `citygs-spark-amd64-docker-images.tar.gz`。
+- 使用 `docker compose` 启动。
+- 浏览器访问 `http://localhost:5173/?spark=1`，模型可正常加载。
+
+模型资产不放在 GitHub 仓库中，统一放在 Hugging Face：
+
+```text
+https://huggingface.co/datasets/DGTXxx/citygs-spark-assets
+```
+
+Mac 本地构建说明：
+
+```text
+docs/mac-spark-docker-build.md
+```
+
+离线交付说明：
+
+```text
+docs/spark-docker-handoff.md
+```
+
+快速构建：
+
+```bash
+python3 -m pip install -U huggingface_hub hf_transfer
+HF_HUB_ENABLE_HF_TRANSFER=1 hf download DGTXxx/citygs-spark-assets \
+  --repo-type dataset \
+  --include "models/*" \
+  --local-dir frontend/public
+
+NODE_IMAGE=docker.m.daocloud.io/library/node:22-bookworm-slim \
+NGINX_IMAGE=docker.m.daocloud.io/library/nginx:1.27-alpine \
+./scripts/export-spark-docker.sh
+
+docker compose -f docker-compose.spark.yml up -d
+```
+
+访问：
+
+```text
+http://localhost:5173/?spark=1
+```
+
+---
+
 面向 **CityGS / MatrixCity / 3D Gaussian Splatting** 的远程实时服务端渲染 MVP。
 
 本项目验证的核心目标是：
