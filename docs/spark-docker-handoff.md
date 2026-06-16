@@ -29,7 +29,7 @@ contains the files under `frontend/public/models`, so the Spark viewer can load
 
 ## Build And Export
 
-On the build machine:
+First build the Docker archive on a build machine, such as your Mac:
 
 ```bash
 cd citygs-spark-docker
@@ -55,7 +55,7 @@ docker save citygs-spark-frontend:amd64 citygs-spark-models:amd64 \
 
 ## Deploy On Ubuntu Server
 
-Copy these two files to the server:
+Then copy these two files from the build machine to the target server:
 
 ```text
 citygs-spark-amd64-docker-images.tar.gz

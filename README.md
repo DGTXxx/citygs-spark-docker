@@ -81,6 +81,13 @@ http://localhost:5173/
 
 ## Docker Deployment
 
+There are two roles in this workflow:
+
+- Build machine: your Mac or another machine with Docker, used to build and
+  export `citygs-spark-amd64-docker-images.tar.gz`.
+- Target server: the Ubuntu server where the website will run. It only needs
+  the exported archive and `docker-compose.spark.yml`.
+
 ### Build amd64 Images On Mac
 
 Build the amd64 images and export them as one compressed archive:
