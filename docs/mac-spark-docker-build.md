@@ -191,13 +191,12 @@ Open:
 http://SERVER_IP:5173/
 ```
 
-## 7. GitHub Storage
+## 7. Delivery Options
 
-Do not commit the generated Docker archive to a normal GitHub repository. The
-model bundle is too large for normal Git storage. Use one of these instead:
+The generated archive can be delivered to the lab server in several ways:
 
 ```text
-Recommended: push images to GitHub Container Registry
-Acceptable: transfer tar.gz through server, NAS, or cloud drive
-Small demo only: attach to GitHub Release if the file is small enough
+Recommended: copy the tar.gz archive to the target server
+Alternative: push images to GitHub Container Registry
+Alternative: transfer through NAS or cloud drive
 ```

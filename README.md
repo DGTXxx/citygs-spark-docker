@@ -200,11 +200,9 @@ http://SERVER_IP:5173/
     └── spark-docker-handoff.md
 ```
 
-## Notes
+## Assets And Documentation
 
-- Do not commit `frontend/public/models/` to GitHub.
-- Do not commit `citygs-spark-amd64-docker-images.tar.gz` to a normal GitHub repository.
-- Full model assets are distributed through Hugging Face.
-- Detailed Mac build guide: `docs/mac-spark-docker-build.md`.
-- Detailed Linux deployment guide: `docs/linux-spark-docker-deploy.md`.
-- Detailed handoff guide: `docs/spark-docker-handoff.md`.
+- Model assets: `https://huggingface.co/datasets/DGTXxx/citygs-spark-assets`
+- Mac build guide: `docs/mac-spark-docker-build.md`
+- Linux deployment guide: `docs/linux-spark-docker-deploy.md`
+- Offline handoff guide: `docs/spark-docker-handoff.md`

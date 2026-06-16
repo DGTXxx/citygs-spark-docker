@@ -87,12 +87,8 @@ http://SERVER_IP:5173/
 docker compose -f docker-compose.spark.yml down
 ```
 
-## GitHub Storage Note
+## Delivery Options
 
-Do not commit `citygs-spark-amd64-docker-images.tar.gz` to a normal GitHub
-repository. The Spark model directory is about 3.8 GB, and GitHub repositories
-are not suitable for that kind of binary artifact. Prefer one of these:
-
-- push the images to GitHub Container Registry;
-- attach a smaller demo archive to a GitHub Release;
-- transfer the full archive through a server, NAS, or cloud drive.
+The generated archive includes both the website image and the model-assets
+image. It can be copied directly to the lab server, pushed to GitHub Container
+Registry, or transferred through NAS or cloud storage.
