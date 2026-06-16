@@ -17,8 +17,8 @@ The local project folder must contain:
 frontend/public/models/
 ```
 
-This directory is not committed to Git because it is about 2.9 GB. Copy it from
-the A6000 server before building the model image.
+This directory is not committed to Git because it is several GB. Download it
+from Hugging Face before building the model image.
 
 Required Spark model files:
 
@@ -57,21 +57,21 @@ https://www.docker.com/products/docker-desktop/
 
 ## 2. Get The Project
 
-Use the repository URL after the latest Docker files are pushed:
+Use the Spark Docker repository:
 
 ```bash
-git clone https://github.com/DGT-X/citygs-remote-render-mvp.git
-cd citygs-remote-render-mvp
+git clone https://github.com/DGTXxx/citygs-spark-docker.git
+cd citygs-spark-docker
 ```
 
 If the folder already exists:
 
 ```bash
-cd citygs-remote-render-mvp
+cd citygs-spark-docker
 git pull
 ```
 
-## 3. Copy Models From The A6000 Server
+## 3. Download Models
 
 Create the local model directory:
 
@@ -79,24 +79,11 @@ Create the local model directory:
 mkdir -p frontend/public/models
 ```
 
-Copy with `rsync`:
+Download the public assets from Hugging Face:
 
 ```bash
-rsync -avP root@A6000_SERVER_IP:/root/Projects/citygs-remote-render-mvp/frontend/public/models/ frontend/public/models/
-```
-
-If the models are only in the deploy copy:
-
-```bash
-rsync -avP root@A6000_SERVER_IP:/root/ftl/citygs-remote-render-deploy/citygs-remote-render-mvp/frontend/public/models/ frontend/public/models/
-```
-
-Replace `A6000_SERVER_IP` with the actual server IP or SSH host alias.
-
-If the assets have been uploaded to Hugging Face, download them instead:
-
-```bash
-pip install -U huggingface_hub
+python3 -m pip install -U huggingface_hub hf_transfer
+HF_HUB_ENABLE_HF_TRANSFER=1 \
 hf download DGTXxx/citygs-spark-assets \
   --repo-type dataset \
   --include "models/*" \
@@ -119,7 +106,7 @@ ls -lh frontend/public/models
 Expected size is about:
 
 ```text
-2.9G
+3.8G
 ```
 
 ## 4. Build And Export amd64 Docker Images

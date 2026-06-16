@@ -6,7 +6,6 @@ logs
 *.log
 *.tsbuildinfo
 
-# Keep the Docker image small. Mount these model assets into the frontend
-# container through docker-compose when they are available on the host.
+# Keep the frontend build context small. The model assets are packed by the
+# separate model-image Docker build whose context is frontend/public.
 frontend/public/models
-

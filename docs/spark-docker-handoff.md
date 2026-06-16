@@ -32,7 +32,7 @@ contains the files under `frontend/public/models`, so the Spark viewer can load
 On the build machine:
 
 ```bash
-cd /root/Projects/citygs-remote-render-mvp
+cd citygs-spark-docker
 ./scripts/export-spark-docker.sh
 ```
 
