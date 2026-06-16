@@ -88,7 +88,7 @@ There are two roles in this workflow:
 - Target server: the Ubuntu server where the website will run. It only needs
   the exported archive and `docker-compose.spark.yml`.
 
-### Build amd64 Images On Mac
+### Option A: Build amd64 Images On Mac
 
 Build the amd64 images and export them as one compressed archive:
 
@@ -111,7 +111,31 @@ citygs-spark-frontend:amd64
 citygs-spark-models:amd64
 ```
 
-### Test Locally
+### Option B: Build And Run Directly On Linux
+
+On an x86_64 Ubuntu server with Docker installed, clone the repository, download
+the model assets, and start Compose directly:
+
+```bash
+git clone https://github.com/DGTXxx/citygs-spark-docker.git
+cd citygs-spark-docker
+
+python3 -m pip install -U huggingface_hub hf_transfer
+HF_HUB_ENABLE_HF_TRANSFER=1 hf download DGTXxx/citygs-spark-assets \
+  --repo-type dataset \
+  --include "models/*" \
+  --local-dir frontend/public
+
+docker compose -f docker-compose.spark.yml up -d --build
+```
+
+Open:
+
+```text
+http://SERVER_IP:5173/
+```
+
+### Test Locally After Export
 
 Start the Docker version locally:
 
@@ -172,6 +196,7 @@ http://SERVER_IP:5173/
 │   └── export-spark-docker.sh
 └── docs/
     ├── mac-spark-docker-build.md
+    ├── linux-spark-docker-deploy.md
     └── spark-docker-handoff.md
 ```
 
@@ -181,4 +206,5 @@ http://SERVER_IP:5173/
 - Do not commit `citygs-spark-amd64-docker-images.tar.gz` to a normal GitHub repository.
 - Full model assets are distributed through Hugging Face.
 - Detailed Mac build guide: `docs/mac-spark-docker-build.md`.
+- Detailed Linux deployment guide: `docs/linux-spark-docker-deploy.md`.
 - Detailed handoff guide: `docs/spark-docker-handoff.md`.

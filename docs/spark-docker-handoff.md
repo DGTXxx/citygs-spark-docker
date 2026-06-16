@@ -16,6 +16,12 @@ For local Mac build instructions, see:
 docs/mac-spark-docker-build.md
 ```
 
+For direct Linux deployment instructions, see:
+
+```text
+docs/linux-spark-docker-deploy.md
+```
+
 ## Images
 
 ```text
